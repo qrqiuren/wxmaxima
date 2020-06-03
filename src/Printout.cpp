@@ -116,7 +116,7 @@ bool Printout::OnPrintPage(int num)
       // No Idea why, though.
       dc->SetPen(wxPen(wxT("light grey"), 1, wxPENSTYLE_SOLID));
       tmp->Draw(point);
-      if (tmp->m_next != NULL)
+      if (tmp->m_next)
       {
         point.x = marginX;
         point.y += drop + tmp->m_next->GetCenterList();

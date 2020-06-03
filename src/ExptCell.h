@@ -52,13 +52,12 @@ public:
   ExptCell(const ExptCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<ExptCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
+  InnerCellIterator InnerBegin() const override { return {&m_baseCell, &m_close+1}; }
 
-  //! Set the mantissa
-  void SetBase(std::unique_ptr<Cell> &&base);
-  //! Set the exponent
-  void SetPower(std::unique_ptr<Cell> &&power);
+  //! Set the mantissa and return it
+  Cell *SetBase(std::unique_ptr<Cell> &&base);
+  //! Set the exponent and return it
+  Cell *SetPower(std::unique_ptr<Cell> &&power);
 
   //! By how much do we want to rise the power?
   double PowRise() const {return Scale_Px(.3 * m_fontSize);}

@@ -365,13 +365,13 @@ void FracCell::SetupBreakUps()
   m_num_Last = m_displayedNum;
   if (m_num_Last)
   {
-    while (m_num_Last->m_next != NULL)
+    while (m_num_Last->m_next)
       m_num_Last = m_num_Last->m_next;
   }
   m_denom_Last = m_displayedDenom;
   if (m_denom_Last)
   {
-    while (m_denom_Last->m_next != NULL)
+    while (m_denom_Last->m_next)
       m_denom_Last = m_denom_Last->m_next;
   }
 }

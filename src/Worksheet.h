@@ -235,10 +235,12 @@ private:
     {
       wxASSERT_MSG(start, _("Bug: Trying to record a cell contents change for undo without a cell."));
     }
+#if 0
     TreeUndoAction(GroupCell *start, GroupCell *end, GroupCell *oldCells) :
         m_start(start), m_newCellsEnd(end), m_oldCells(oldCells)
     {
     }
+#endif
 
     /*! True = This undo action is only part of an atomic undo action.
 
@@ -602,10 +604,10 @@ private:
 public:
   //! Is this worksheet empty?
   bool IsEmpty()
-    {
-      return ( (m_tree == NULL) ||
-               ((m_tree->m_next == NULL) && m_tree->GetEditable()->GetValue().Length()<=1));
-    }
+  {
+    return (!m_tree ||
+            (!m_tree->m_next && m_tree->GetEditable()->GetValue().Length()<=1));
+  }
   //! Close the autocompletion pop-up if it is currently open.
   void CloseAutoCompletePopup()
     {

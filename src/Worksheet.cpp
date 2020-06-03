@@ -33,6 +33,7 @@
 #include "wxMaxima.h"
 #include "CompositeDataObject.h"
 #include "ErrorRedirector.h"
+#include "GroupCell.h"
 #include "MaxSizeChooser.h"
 #include "SVGout.h"
 #include "EMFout.h"
@@ -296,7 +297,7 @@ bool Worksheet::RedrawIfRequested()
       if (m_cellPointers.m_groupCellUnderPointer->GetOutputRect().Contains(wxPoint(m_pointer_x, m_pointer_y)))
       {
         m_cellPointers.m_cellUnderPointer = nullptr;
-        wxString toolTip = m_cellPointers.m_groupCellUnderPointer->GetToolTip(wxPoint(m_pointer_x, m_pointer_y));
+        const wxString &toolTip = m_cellPointers.m_groupCellUnderPointer->GetToolTip(wxPoint(m_pointer_x, m_pointer_y));
 
         if (!toolTip.empty())
         {
@@ -2494,13 +2495,13 @@ bool Worksheet::CopyMatlab()
 
   wxString result;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
+  for (auto &tmp : m_cellPointers.m_selectionStart->OnCellList())
   {
-    if (tmp->HardLineBreak() && !firstcell)
+    if (tmp.HardLineBreak() && !firstcell)
 	  result += wxT("\n");
-	result += tmp->ToMatlab();
-	if (tmp == m_cellPointers.m_selectionEnd)
-	  break;
+    result += tmp.ToMatlab();
+    if (&tmp == m_cellPointers.m_selectionEnd)
+      break;
 	firstcell = false;
   }
 
@@ -2522,6 +2523,7 @@ bool Worksheet::CopyTeX()
   if (!m_cellPointers.m_selectionStart)
     return false;
 
+  Cell *tmp = m_cellPointers.m_selectionStart;
 
   bool inMath = false;
   wxString label;
@@ -2537,20 +2539,20 @@ bool Worksheet::CopyTeX()
     inMath = true;
     if (wrapLatexMath)
       s = wxT("\\[");
-    for (; tmp; tmp = tmp->m_next)
+    for (auto &cell : tmp->OnCellList())
     {
-      s += tmp->ToTeX();
-      if (tmp == m_cellPointers.m_selectionEnd)
+      s += cell.ToTeX();
+      if (&cell == m_cellPointers.m_selectionEnd)
         break;
     }
   }
   else
   {
-    for (auto *gc = dynamic_cast<GroupCell *>(tmp); gc; gc = gc->GetNext())
+    for (auto &gc : selStart.CastAs<GroupCell *>()->OnGroupList())
     {
       int imgCtr = 0;
-      s += gc->ToTeX(wxEmptyString, wxEmptyString, &imgCtr);
-      if (gc == m_cellPointers.m_selectionEnd)
+      s += gc.ToTeX(wxEmptyString, wxEmptyString, &imgCtr);
+      if (&gc == m_cellPointers.m_selectionEnd)
         break;
     }
   }
@@ -2578,13 +2580,15 @@ bool Worksheet::CopyText()
     return false;
 
   wxString result;
+  auto selStart = m_cellPointers.m_selectionStart;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
+
+  for (auto &tmp : selStart->OnCellList())
   {
-    if (tmp->HardLineBreak() && !firstcell)
+    if (tmp.HardLineBreak() && !firstcell)
       result += wxT("\n");
-    result += tmp->ToString();
-    if (tmp == m_cellPointers.m_selectionEnd)
+    result += tmp.ToString();
+    if (&tmp == m_cellPointers.m_selectionEnd)
       break;
     firstcell = false;
   }
@@ -2609,9 +2613,9 @@ bool Worksheet::CopyCells()
   if (wxTheClipboard->Open())
   {
 #if wxUSE_ENH_METAFILE
-    auto *data = new CompositeDataObject;
+    auto data = make_unique<CompositeDataObject>();
 #else
-    wxDataObjectComposite *data = new wxDataObjectComposite;
+    auto data = make_unique<wxDataObjectComposite>();
 #endif
     wxString wxm;
     wxString str;
@@ -2620,19 +2624,19 @@ bool Worksheet::CopyCells()
     GroupCell *end = m_cellPointers.m_selectionEnd->GetGroup();
 
     bool firstcell = true;
-    for (GroupCell *tmp = selStart; tmp; tmp = tmp->GetNext())
+    for (auto &tmp : selStart->OnGroupList())
     {
       if (!firstcell)
         str += wxT("\n");
-      str += tmp->ToString();
+      str += tmp.ToString();
       firstcell = false;
 
       if (m_configuration->CopyRTF())
-        rtf += tmp->ToRTF();
-      wxm += Format::TreeToWXM(tmp);
+        rtf += tmp.ToRTF();
+      wxm += Format::TreeToWXM(&tmp);
 
-      if (tmp == end)
-      	break;
+      if (&tmp == end)
+        break;
     }
 
     rtf += wxT("\\par") + RTFEnd();
@@ -2861,18 +2865,18 @@ void Worksheet::DeleteRegion(GroupCell *start, GroupCell *end, UndoActions *undo
 
   // check if chapters or sections need to be renumbered
   bool renumber = false;
-  for (GroupCell *tmp = start; tmp; tmp = tmp->GetNext())
+  for (auto &tmp : start->OnGroupList())
   {
-    m_evaluationQueue.Remove(tmp);
+    m_evaluationQueue.Remove(&tmp);
 
-    if (tmp->IsFoldable() || (tmp->GetGroupType() == GC_TYPE_IMAGE))
+    if (tmp.IsFoldable() || (tmp.GetGroupType() == GC_TYPE_IMAGE))
       renumber = true;
 
     // Don't keep cached versions of scaled images around in the undo buffer.
-    if (tmp->GetOutput())
-      tmp->GetOutput()->ClearCacheList();
+    if (tmp.GetOutput())
+      tmp.GetOutput()->ClearCacheList();
 
-    if (tmp == end)
+    if (&tmp == end)
       break;
   }
 
@@ -3351,7 +3355,7 @@ void Worksheet::OnCharInActive(wxKeyEvent &event)
   {
     // Get the first next cell that isn't hidden
     GroupCell *start = GetActiveCell()->GetGroup();
-    while (start && start->m_next && start->m_next->GetMaxDrop() == 0)
+    while (start && start->m_next && (start->m_next->GetMaxDrop() == 0))
       start = start->GetNext();
 
     if (event.ShiftDown())
@@ -3936,12 +3940,13 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
         {
           if (event.CmdDown())
           {
-            GroupCell *tmp = m_cellPointers.m_selectionEnd.CastAs<GroupCell*>();
-            if (tmp->GetNext())
+            auto range = m_cellPointers.m_selectionEnd->OnGroupList();
+            auto tmp = range.begin();
+            if (!range.empty() && std::next(tmp) != range.end())
             {
-              do tmp = tmp->GetNext();
+              do ++tmp;
               while (
-                tmp->GetNext() && (
+                tmp != range.end() && (
                   (
                     (tmp->GetGroupType() != GC_TYPE_TITLE) &&
                     (tmp->GetGroupType() != GC_TYPE_SECTION) &&
@@ -3950,7 +3955,7 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
                   (tmp->GetNext()->GetMaxDrop() == 0)
                   )
                 );
-              SetHCaret(tmp);
+              SetHCaret(&*tmp);
             }
             else
             {
@@ -3965,12 +3970,13 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
         {
           if (event.CmdDown())
           {
-            GroupCell *tmp = m_hCaretPosition;
-            if (tmp->GetNext())
+            auto range = m_hCaretPosition->OnGroupList();
+            auto tmp = range.begin();
+            if (!range.empty() && std::next(tmp) != range.end())
             {
-              do tmp = tmp->GetNext();
+              do ++tmp;
               while (
-                tmp->GetNext() && (
+                tmp != range.end() && (
                   (tmp->GetGroupType() != GC_TYPE_TITLE) &&
                   (tmp->GetGroupType() != GC_TYPE_SECTION) &&
                   (tmp->GetGroupType() != GC_TYPE_SUBSECTION) &&
@@ -4169,13 +4175,15 @@ void Worksheet::GetMaxPoint(int *width, int *height)
   int currentHeight = m_configuration->GetIndent();
   *width = m_configuration->GetBaseIndent();
 
-  for (Cell *tmp = GetTree(); tmp; tmp = tmp->GetNext())
+  for (auto &tmp : GetTree()->OnCellList())
   {
-    currentHeight += tmp->GetHeightList();
+    currentHeight += tmp.GetHeightList();
     currentHeight += m_configuration->GetGroupSkip();
-    int currentWidth = m_configuration->Scale_Px(m_configuration->GetIndent() + m_configuration->GetDefaultFontSize())
-                       + tmp->GetWidth()
-                       + m_configuration->Scale_Px(m_configuration->GetIndent() + m_configuration->GetDefaultFontSize());
+    int currentWidth = m_configuration->Scale_Px(m_configuration->GetIndent()
+                                                 + m_configuration->GetDefaultFontSize())
+                       + tmp.GetWidth()
+                       + m_configuration->Scale_Px(m_configuration->GetIndent()
+                                                   + m_configuration->GetDefaultFontSize());
     *width = wxMax(currentWidth, *width);
   }
   *height = currentHeight;
@@ -7154,7 +7162,7 @@ void Worksheet::PasteFromClipboard()
 
         // Search for the last cell we want to paste
         GroupCell *end = contents.get();
-        while (end->m_next)
+        while (end->GetNext())
           end = end->GetNext();
 
         // Now paste the cells

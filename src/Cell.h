@@ -311,7 +311,7 @@ class Cell: public Observed
 
     wxEmptyString means: No ToolTip
    */
-  virtual wxString GetToolTip(const wxPoint &point);
+  virtual const wxString &GetToolTip(const wxPoint &point);
 
   //! Delete this list of cells.
   virtual ~Cell();
@@ -341,7 +341,7 @@ class Cell: public Observed
   Cell *AppendCell(std::unique_ptr<Cell> &&next);
 
   //! 0 for ordinary cells, 1 for slide shows and diagrams displayed with a 1-pixel border
-  int m_imageBorderWidth;
+  int m_imageBorderWidth = 0;
 
   //! Do we want this cell to start with a linebreak?
   bool SoftLineBreak(bool breakLine = true)
@@ -721,7 +721,7 @@ class Cell: public Observed
   wxString OMML2RTF(wxXmlNode *node);
 
   //! Converts OMML math to RTF math
-  wxString OMML2RTF(wxString ommltext);
+  wxString OMML2RTF(const wxString &ommltext);
 
   /*! Returns the cell's representation as OMML
 
@@ -805,20 +805,23 @@ class Cell: public Observed
     list of cells this cell is displayed as.
    */
   virtual void SetNextToDraw(Cell *next) = 0;
+
   template <typename T, typename Del,
             typename std::enable_if<std::is_base_of<Cell, T>::value, bool>::type = true>
   void SetNextToDraw(const std::unique_ptr<T, Del> &ptr) { SetNextToDraw(ptr.get()); }
   template <typename T, typename
                        std::enable_if<std::is_base_of<Cell, T>::value, bool>::type = true>
   void SetNextToDraw(const CellPtr<T> &ptr) { SetNextToDraw(ptr.get()); }
-  bool m_bigSkip;
+
+  bool m_bigSkip = false;
+
   /*! true means:  This cell is broken into two or more lines.
     
     Long abs(), conjugate(), fraction and similar cells can be displayed as 2D objects,
     but will be displayed in their linear form (and therefore broken into lines) if they
     end up to be wider than the screen. In this case m_isBrokenIntoLines is true.
    */
-  bool m_isBrokenIntoLines;
+  bool m_isBrokenIntoLines = false;
   /*! True means: This cell is not to be drawn.
 
     Currently the following items fall into this category:
@@ -826,10 +829,10 @@ class Cell: public Observed
      - plus signs within numbers
      - The output in folded GroupCells
    */
-  bool m_isHidden;
+  bool m_isHidden = false;
 
   //! True means: This is a hidable multiplication sign
-  bool m_isHidableMultSign;
+  bool m_isHidableMultSign = false;
 
   /*! Determine if this cell contains text that isn't code
 
@@ -951,7 +954,7 @@ class Cell: public Observed
     many => we need parenthesis cells to set this flag for the first cell in 
     their "inner cell" list.
    */
-  bool m_SuppressMultiplicationDot;
+  bool m_SuppressMultiplicationDot = false;
 
   //! Remove this cell's tooltip
   void ClearToolTip(){m_toolTip = wxEmptyString;}
@@ -960,14 +963,14 @@ class Cell: public Observed
   //! Add another tooltip to this cell
   void AddToolTip(const wxString &tip);
   //! Tells this cell where it is placed on the worksheet
-  void SetCurrentPoint(wxPoint point){m_currentPoint = point;
-    if((m_currentPoint.x >=0) &&
-       (m_currentPoint.y >=0))
-  m_currentPoint_Last = point;
+  void SetCurrentPoint(wxPoint point){
+    m_currentPoint = point;
+    if (point.IsFullySpecified())
+      m_currentPoint_Last = point;
   }
   //! Tells this cell where it is placed on the worksheet
   void SetCurrentPoint(int x, int y){
-    SetCurrentPoint(wxPoint(x,y));
+    SetCurrentPoint({x ,y});
   }
   //! Where is this cell placed on the worksheet?
   wxPoint GetCurrentPoint() const {return m_currentPoint;}
@@ -994,9 +997,9 @@ protected:
      - for EditorCells by it's GroupCell's RecalculateHeight and
      - for Cells when they are drawn.
   */
-  wxPoint m_currentPoint;
+  wxPoint m_currentPoint = wxDefaultPosition;
 
-  wxPoint m_currentPoint_Last;
+  wxPoint m_currentPoint_Last = wxDefaultPosition;
 
   /*! The GroupCell this list of cells belongs to.
     Reads NULL, if no parent cell has been set - which is treated as an Error by GetGroup():
@@ -1005,20 +1008,20 @@ protected:
   CellPtr<GroupCell> m_group;
 
   //! Does this cell begin with a forced page break?
-  bool m_breakPage;
+  bool m_breakPage = false;
   //! Are we allowed to add a line break before this cell?
-  bool m_breakLine;
-  //! true means we force this cell to begin with a line break.  
-  bool m_forceBreakLine;
-  bool m_highlight;
-  /* Text that should end up on the clipboard if this cell is copied as text.
+  bool m_breakLine = false;
+  //! true means we force this cell to begin with a line break.
+  bool m_forceBreakLine = false;
+  bool m_highlight = false;
+
+  /*! Text that should end up on the clipboard if this cell is copied as text.
 
      \attention  m_altCopyText is not check in all cell types!
   */
   wxString m_altCopyText;
-  Configuration **m_configuration;
 
-  class InnerCellIterator
+  class InnerCellIterator final
   {
     enum class Uses { SmartPtr, RawPtr};
     using SmartPtr = const std::unique_ptr<Cell> *;
@@ -1065,50 +1068,157 @@ protected:
   //! Iterator to the beginning of the inner cell range
   virtual InnerCellIterator InnerBegin() const;
   //! Iterator to the end of the inner cell range
-  virtual InnerCellIterator InnerEnd() const;
+  InnerCellIterator InnerEnd() const { return {}; }
+
+  struct InnerCellRange final
+  {
+    InnerCellIterator m_begin, m_end;
+  public:
+    InnerCellIterator begin() const { return m_begin; }
+    InnerCellIterator end() const { return m_end; }
+  };
+  InnerCellRange OnInnerCells() const { return {InnerBegin(), InnerEnd()}; }
+
+public:
+  template <class CellT, class Derived> class CellListIteratorBase
+  {
+  protected:
+    CellT *ptr = {};
+  public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = CellT;
+    using difference_type = std::ptrdiff_t;
+    using pointer = CellT*;
+    using reference = CellT&;
+
+    CellListIteratorBase() = default;
+    explicit CellListIteratorBase(CellT *cell) : ptr(cell) {}
+    CellListIteratorBase(const Derived &o) : ptr(o.ptr) {};
+    Derived &operator=(const Derived &o) { return (ptr = o.ptr), *this; }
+    Derived operator++(int)
+    {
+      auto ret = *this;
+      ++(*this);
+      return ret;
+    }
+    bool operator==(const Derived &o) const { return ptr == o.ptr; }
+    bool operator!=(const Derived &o) const { return ptr != o.ptr; }
+    operator bool() const { return ptr; }
+    operator CellT *() const { return ptr; }
+    CellT *operator->() const { return ptr; }
+  };
+
+  class CellListIterator final : public CellListIteratorBase<Cell, CellListIterator>
+  {
+  public:
+    using CellListIteratorBase::CellListIteratorBase;
+#if 0
+    CellListIterator() = default;
+    CellListIterator(Cell *cell) : CellListIteratorBase(cell) {}
+    CellListIterator(const CellListIterator &o) = default;
+#endif
+    CellListIterator &operator++() { ptr = ptr->m_next.get(); return *this; }
+  };
+
+  CellListIterator ListBegin() const { return CellListIterator{const_cast<Cell*>(this)}; }
+  CellListIterator ListEnd() const { return {}; }
+  struct CellListRange final
+  {
+    CellListIterator m_begin;
+  public:
+    CellListIterator begin() const { return m_begin; }
+    CellListIterator end() const { return {}; }
+    bool empty() const { return m_begin != CellListIterator{}; }
+  };
+
+  class DrawListIterator final : public CellListIteratorBase<Cell, DrawListIterator>
+  {
+  public:
+    using CellListIteratorBase::CellListIteratorBase;
+    DrawListIterator &operator++() { ptr = ptr->GetNextToDraw(); return *this; }
+  };
+
+  DrawListIterator DrawBegin() const { return DrawListIterator{const_cast<Cell*>(this)}; }
+  DrawListIterator DrawEnd() const { return {}; }
+  struct DrawListRange final
+  {
+    DrawListIterator m_begin;
+  public:
+    DrawListIterator begin() const { return m_begin; }
+    DrawListIterator end() const { return {}; }
+    bool empty() const { return m_begin != DrawListIterator{}; }
+  };
+
+  //! The iterator that iterates over the group cells in this cell's list. It stops
+  //! immediately when the next node is not a GroupCell.
+  class GroupListIterator final : public CellListIteratorBase<GroupCell, GroupListIterator>
+  {
+  public:
+    using CellListIteratorBase::CellListIteratorBase;
+    GroupListIterator &operator++();
+  };
+
+  struct GroupListRange final
+  {
+    GroupListIterator m_begin;
+  public:
+    GroupListIterator begin() const { return m_begin; }
+    GroupListIterator end() const { return {}; }
+    bool empty() const { return m_begin != GroupListIterator{}; }
+  };
 
   bool ContainsToolTip() const { return m_containsToolTip; }
 
+protected:
   inline Worksheet *GetWorksheet() const;
+
+public:
+  //! Provides a range on the cell list, starting with this cell.
+  CellListRange OnCellList() const { return {ListBegin()}; }
+  //! Proviedes a range on the cell list in draw order, starting with this cell.
+  DrawListRange OnDrawList() const { return {DrawBegin()}; }
+  //! Provides a range on the list of group cells, starting with this cell,
+  //! ending with the first non-group cell.
+  virtual GroupListRange OnGroupList() const { return {}; }
 
 protected:
   bool m_containsToolTip;
   //! The height of this cell.
-  int m_height;
+  int m_height = 1;
   /*! The width of this cell.
 
     Is recalculated by RecalculateHeight.
    */
-  int m_width;
+  int m_width = -1;
   /*! Caches the width of the list starting with this cell.
 
     - Will contain -1, if it has not yet been calculated.
     - Won't be recalculated on appending new cells to the list.
   */
-  int m_fullWidth;
+  int m_fullWidth = -1;
   /*! Caches the width of the rest of the line this cell is part of.
 
     - Will contain -1, if it has not yet been calculated.
     - Won't be recalculated on appending new cells to the list.
   */
-  int m_lineWidth;
-  int m_center;
-  int m_maxCenter;
-  int m_maxDrop;
-  CellType m_type;
-  TextStyle m_textStyle;
+  int m_lineWidth = -1;
+  int m_center = -1;
+  int m_maxCenter = -1;
+  int m_maxDrop = -1;
+  CellType m_type = MC_TYPE_DEFAULT;
+  TextStyle m_textStyle = TS_DEFAULT;
   //! The font size is smaller in super- and subscripts.
   double m_fontSize;
 
 protected:
-  CellPointers *m_cellPointers;
+  CellPointers *const m_cellPointers = GetCellPointers();
   //! The zoom factor at the time of the last recalculation.
-  double m_lastZoomFactor;
-  int m_fontsize_old;
-  bool m_isBrokenIntoLines_old;
+  double m_lastZoomFactor = -1.0;
+  int m_fontsize_old = -1;
+  bool m_isBrokenIntoLines_old = false;
 private:
   //! The client width at the time of the last recalculation.
-  int m_clientWidth_old;
+  int m_clientWidth_old = -1;
 
   CellPointers *GetCellPointers() const;
 };

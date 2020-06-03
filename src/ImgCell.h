@@ -43,21 +43,19 @@ public:
   ~ImgCell() override;
 
   //! Tell the image which gnuplot files it was made from
-  void GnuplotSource(wxString sourcefile, wxString datafile, std::shared_ptr<wxFileSystem> filesystem)
-  { if (m_image) m_image->GnuplotSource(sourcefile,datafile, filesystem); }
-
+  void GnuplotSource(const wxString &sourcefile, const wxString &datafile, std::shared_ptr<wxFileSystem> filesystem)
+  { if (m_image) m_image->GnuplotSource(sourcefile, datafile, filesystem); }
   //! The name of the file with gnuplot commands that created this file
   wxString GnuplotSource() const override
-  { return m_image ? m_image->GnuplotSource() : wxString(); }
-
+  { return m_image ?  m_image->GnuplotSource() : wxString{}; }
   //! The name of the file with gnuplot data needed for creating this file
   wxString GnuplotData() const override
-  { return m_image ? m_image->GnuplotData() : wxString{}; }
+  { return m_image ?  m_image->GnuplotData() : wxString{}; }
 
   void LoadImage(wxString image, bool remove = true);
 
   //! Can this image be exported in SVG format?
-  bool CanExportSVG() const {return (m_image != NULL) && m_image->CanExportSVG();}
+  bool CanExportSVG() const {return m_image && m_image->CanExportSVG();}
 
   friend class SlideShow;
 
@@ -76,9 +74,9 @@ public:
     The scaled version of the image will be recreated automatically once it is 
     needed.
    */
-  void ClearCache() override { if (m_image) m_image->ClearCache(); }
+  void ClearCache() override {if (m_image) m_image->ClearCache();}
 
-  wxString GetToolTip(const wxPoint &point) override;
+  const wxString &GetToolTip(const wxPoint &point) override;
   
   //! Sets the bitmap that is shown
   void SetBitmap(const wxBitmap &bitmap);
@@ -90,15 +88,15 @@ public:
 
   //! Returns the file name extension that matches the image type
   wxString GetExtension() const
-  { if (m_image)return m_image->GetExtension(); else return wxEmptyString; }
+  { return m_image ? m_image->GetExtension() : wxString(); }
 
   //! Returns the original compressed version of the image
-  wxMemoryBuffer GetCompressedImage() const { return m_image->m_compressedImage; }
+  const wxMemoryBuffer &GetCompressedImage() const { return m_image->m_compressedImage; }
 
   double GetMaxWidth() const { return m_image ? m_image->GetMaxWidth() : -1; }
   double GetHeightList() const { return m_image ? m_image->GetHeightList() : -1; }
   void SetMaxWidth(double width) const { if (m_image) m_image->SetMaxWidth(width); }
-  void SetMaxHeight(double height) const { if (m_image) m_image->SetMaxHeight(height); }
+  void SetMaxHeight(double height) const { if(m_image) m_image->SetMaxHeight(height); }
 
   void RecalculateHeight(int fontsize) override;
 
@@ -116,7 +114,8 @@ public:
 
   wxString ToXML() override;
 
-  bool CanPopOut() override { return !m_image->GnuplotSource().empty(); }
+  bool CanPopOut() override { return m_image && !m_image->GnuplotSource().empty(); }
+
 
   void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
   Cell *GetNextToDraw() const override { return m_nextToDraw; }

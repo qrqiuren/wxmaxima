@@ -73,40 +73,32 @@ public:
   ~GroupCell();
 
   wxString GetAnswer(int answer)
-    {
-      if((!m_autoAnswer) && (!(*m_configuration)->OfferKnownAnswers()))
-        return wxEmptyString;
-      
-      return m_knownAnswers[wxString::Format(wxT("Question #%i"),answer)];
-    }
-  wxString GetAnswer(wxString question)
-    {
-      if((!m_autoAnswer) && (!(*m_configuration)->OfferKnownAnswers()))
-        return wxEmptyString;
-      
-      wxString answer = m_knownAnswers[question];
-      if(answer.IsEmpty())
-        answer = GetAnswer(++m_numberedAnswersCount);
-      return answer;
-    }
+  {
+    if ((!m_autoAnswer) && (!(*m_configuration)->OfferKnownAnswers()))
+      return {};
+    return m_knownAnswers[wxString::Format(wxT("Question #%i"),answer)];
+  }
+  wxString GetAnswer(const wxString &question)
+  {
+    if ((!m_autoAnswer) && (!(*m_configuration)->OfferKnownAnswers()))
+      return {};
+    wxString answer = m_knownAnswers[question];
+    return answer.empty() ? GetAnswer(++m_numberedAnswersCount) : answer;
+  }
   //! Does this GroupCell save the answer to a question?
   bool AutoAnswer() const { return m_autoAnswer; }
   //! Does this GroupCell save the answer to a question?
   void AutoAnswer(bool autoAnswer)
   {
     m_autoAnswer = autoAnswer;
-    if(GetEditable() != NULL) GetEditable()->AutoAnswer(autoAnswer);
+    if (GetEditable()) GetEditable()->AutoAnswer(autoAnswer);
   }
   // Add a new answer to the cell
-  void SetAnswer(wxString question, wxString answer)
-  {
-    if (answer != wxEmptyString)
-      m_knownAnswers[question] = answer;
-  }
+  void SetAnswer(const wxString &question, const wxString &answer)
+  { if (!answer.empty()) m_knownAnswers[question] = answer; }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_inputLabel); }
-  InnerCellIterator InnerEnd() const override
-  { return (m_groupType == GC_TYPE_PAGEBREAK) ? InnerCellIterator(InnerBegin()) : ++InnerCellIterator(&m_output); }
+  InnerCellIterator InnerBegin() const override
+  { return (m_groupType == GC_TYPE_PAGEBREAK) ? InnerCellIterator{} : InnerCellIterator{&m_inputLabel, &m_output+1}; }
 
   /*! Which GroupCell was the last maxima was working on?
 
@@ -127,7 +119,7 @@ public:
 
     wxEmptyString means: No toolTip.
    */
-  wxString GetToolTip(const wxPoint &point)  override;
+  const wxString &GetToolTip(const wxPoint &point) override;
 
   // general methods
   GroupType GetGroupType() const { return m_groupType; }
@@ -153,7 +145,7 @@ public:
 
   // methods for manipulating GroupCell
   // cppcheck-suppress functionConst
-  bool SetEditableContent(wxString text);
+  bool SetEditableContent(const wxString &text);
 
   EditorCell *GetEditable() const; // returns pointer to editor (if there is one)
 
@@ -168,18 +160,18 @@ public:
   //! GroupCells warn if they contain both greek and latin lookalike chars.
   void UpdateConfusableCharWarnings();
   
-  wxString ToTeX(wxString imgDir, wxString filename, int *imgCounter);
+  wxString ToTeX(const wxString &imgDir, const wxString &filename, int *imgCounter);
 
   wxString ToRTF() override;
 
-  wxString ToTeXCodeCell(wxString imgDir, wxString filename, int *imgCounter);
+  wxString ToTeXCodeCell(const wxString &imgDir, const wxString &filename, int *imgCounter);
 
-  static wxString ToTeXImage(Cell *tmp, wxString imgDir, wxString filename, int *imgCounter);
+  static wxString ToTeXImage(Cell *tmp, const wxString &imgDir, const wxString &filename, int *imgCounter);
 
   wxString ToTeX() override;
 
   //! Add Markdown to the TeX representation of input cells.
-  wxString TeXMarkdown(wxString str);
+  wxString TeXMarkdown(const wxString &str);
 
   wxString ToXML() override;
 
@@ -201,7 +193,10 @@ public:
   //! Get the next GroupCell in the list.
   GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next.get()); }
 
-  static wxString TexEscapeOutputCell(wxString Input);
+  unique_cell_ptr<GroupCell> TakeNextGroup()
+  { return static_unique_cast<GroupCell>(std::move(m_next)); }
+
+  static wxString TexEscapeOutputCell(const wxString &input);
 
   Cell *GetPrompt() { return m_inputLabel.get(); }
 
@@ -363,13 +358,7 @@ public:
    */
   void Draw(wxPoint point) override;
 
-  bool AddEnding() override
-    {
-      if(GetEditable() != NULL)
-        return GetEditable()->AddEnding();
-      else
-        return false;
-    }
+  bool AddEnding() override { return GetEditable() && GetEditable()->AddEnding(); }
 
   //! Draw the bracket of this cell
   void DrawBracket();
@@ -378,13 +367,13 @@ public:
   bool Empty();
 
   //! Does this tree contain the cell "cell"?
-  bool Contains(GroupCell *cell);
+  bool Contains(GroupCell *needle);
 
   //! A textual representation of this cell
   wxString ToString() override;
 
   //! Is this cell part of the evaluation Queue?
-  void InEvaluationQueue(bool inQueue) { m_inEvaluationQueue = inQueue; }
+  void InEvaluationQueue(bool inQueue)  { m_inEvaluationQueue = inQueue; }
 
   //! Is this cell the last cell in the evaluation Queue?
   void LastInEvaluationQueue(bool last) { m_lastInEvaluationQueue = last; }
@@ -470,11 +459,15 @@ public:
   */
   GroupCell *UpdateYPosition();
 
-  bool GetSuppressTooltipMarker()
-    {return m_suppressTooltipMarker;}
-  void SetSuppressTooltipMarker(bool suppress)
-    {m_suppressTooltipMarker = suppress;}
-protected:
+  bool GetSuppressTooltipMarker() { return m_suppressTooltipMarker; }
+  void SetSuppressTooltipMarker(bool suppress) { m_suppressTooltipMarker = suppress; }
+
+  GroupListIterator GroupBegin() const { return GroupListIterator{const_cast<GroupCell*>(this)}; }
+  GroupListIterator GroupEnd() const { return {}; }
+
+  GroupListRange OnGroupList() const override final { return {GroupBegin()}; }
+
+private:
   int m_labelWidth_cached;
   bool NeedsRecalculation(int fontSize) override;
   int GetInputIndent();
@@ -507,5 +500,8 @@ protected:
   void UpdateCellsInGroup()
   { m_cellsInGroup = 2 + (m_output ? m_output->CellsInListRecursive() : 0); }
 };
+
+inline Cell::GroupListIterator &Cell::GroupListIterator::operator++()
+{ ptr = ptr->GetNext(); return *this; }
 
 #endif /* GROUPCELL_H */

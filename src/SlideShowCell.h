@@ -64,22 +64,22 @@ public:
 
   std::unique_ptr<Cell> Copy() override { return make_unique<SlideShow>(*this); }
   ~SlideShow();
-  void LoadImages(wxMemoryBuffer imageData);
-  void LoadImages(wxString imageFile);
+
+  void LoadImages(const wxMemoryBuffer &imageData);
+  void LoadImages(const wxString &imageFile);
 
   //! A class that publishes wxm data to the clipboard
   static wxDataFormat m_gifFormat;
 
   //! Can the current image be exported in SVG format?
-  bool CanExportSVG() const {return (m_images[m_displayed] != NULL) && m_images[m_displayed]->CanExportSVG();}
+  bool CanExportSVG() const {return m_images[m_displayed] && m_images[m_displayed]->CanExportSVG();}
 
   //! A Gif object for the clipboard
   class GifDataObject : public wxCustomDataObject
   {
   public:
     explicit GifDataObject(const wxMemoryOutputStream &str);
-
-    GifDataObject();
+    GifDataObject() = default;
 
   private:
     wxCharBuffer m_databuf;
@@ -87,7 +87,7 @@ public:
 
   bool IsOk() const {return (m_size>0) && (m_images[m_displayed]->IsOk());}
   
-  wxString GetToolTip(const wxPoint &point) override;
+  const wxString &GetToolTip(const wxPoint &point) override;
 
   /*! Remove all cached scaled images from memory
 
@@ -147,25 +147,16 @@ public:
   bool AnimationRunning() const { return m_animationRunning; }
   void AnimationRunning(bool run);
   bool CanPopOut() override
-  { return (!m_images[m_displayed]->GnuplotSource().empty()); }
+  { return m_images[m_displayed] && !m_images[m_displayed]->GnuplotSource().IsEmpty(); }
 
-  void GnuplotSource(int image, wxString gnuplotFilename, wxString dataFilename, std::shared_ptr<wxFileSystem> filesystem)
+  void GnuplotSource(int image, const wxString &gnuplotFilename, const wxString &dataFilename, std::shared_ptr<wxFileSystem> filesystem)
   { m_images[image]->GnuplotSource(gnuplotFilename, dataFilename, filesystem); }
 
   wxString GnuplotSource() const override
-  {
-    if (!m_images[m_displayed])
-      return wxEmptyString;
-    else
-      return m_images[m_displayed]->GnuplotSource();
-  }
+  { return m_images[m_displayed] ? m_images[m_displayed]->GnuplotSource() : wxString(); }
   wxString GnuplotData() const override
-  {
-    if (!m_images[m_displayed])
-      return wxEmptyString;
-    else
-      return m_images[m_displayed]->GnuplotData();
-  }
+  { return m_images[m_displayed] ? m_images[m_displayed]->GnuplotData() : wxString(); }
+
 
   void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
   Cell *GetNextToDraw() const override {return m_nextToDraw;}
@@ -186,6 +177,8 @@ private:
   std::shared_ptr<wxFileSystem> m_fileSystem;
   std::vector<std::shared_ptr<Image>> m_images;
 
+  bool m_drawBoundingBox;
+
   void RecalculateHeight(int fontsize) override;
 
   void RecalculateWidths(int fontsize) override;
@@ -202,10 +195,8 @@ private:
 
   wxString ToXML() override;
 
-  void DrawBoundingBox(wxDC &WXUNUSED(dc), bool WXUNUSED(all) = false)  override
+  void DrawBoundingBox(wxDC &WXUNUSED(dc), bool WXUNUSED(all) = false) override
   { m_drawBoundingBox = true; }
-
-  bool m_drawBoundingBox;
 };
 
 #endif // SLIDESHOWCELL_H

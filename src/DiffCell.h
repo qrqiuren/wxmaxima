@@ -32,8 +32,7 @@ public:
   DiffCell(const DiffCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<DiffCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_diffCell); }
+  InnerCellIterator InnerBegin() const override { return {&m_baseCell, &m_diffCell+1}; }
 
   void SetBase(std::unique_ptr<Cell> &&base);
   void SetDiff(std::unique_ptr<Cell> &&diff);

@@ -101,11 +101,11 @@ private:
   void SetAltText();
 
   void FontsChanged() override
-    {
-      ResetSize();
-      ResetData();
-      m_widths.clear();
-    }
+  {
+    ResetSize();
+    ResetData();
+    m_widths.clear();
+  }
 
   //! Resets the font size to label size
   void SetFontSizeForLabel(wxDC *dc);
@@ -144,10 +144,7 @@ private:
   {
   public:
     SizeHash_internals() { }
-    unsigned long operator()( const double& k ) const
-      {
-        return k * 1000000;
-      }
+    unsigned long operator()( const double& k ) const { return k * 1000000; }
     SizeHash_internals& operator=(const SizeHash_internals&) { return *this; }
   };
   // comparison operator
@@ -156,9 +153,7 @@ private:
   public:
     DoubleEqual() { }
     bool operator()( const double& a, const double& b ) const
-      {
-        return fabs(a-b) < .001;
-      }
+    { return fabs(a-b) < .001; }
     DoubleEqual& operator=(const DoubleEqual&) { return *this; }
   };
   WX_DECLARE_HASH_MAP(

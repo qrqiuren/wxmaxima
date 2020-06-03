@@ -154,7 +154,7 @@ int SlideShow::SetFrameRate(int Freq)
   return m_framerate;
 }
 
-void SlideShow::LoadImages(wxMemoryBuffer imageData)
+void SlideShow::LoadImages(const wxMemoryBuffer &imageData)
 {
   wxImage images;
   wxMemoryInputStream istream(imageData.GetData(), imageData.GetDataLen());
@@ -171,7 +171,7 @@ void SlideShow::LoadImages(wxMemoryBuffer imageData)
   }
 }
 
-void SlideShow::LoadImages(wxString imageFile)
+void SlideShow::LoadImages(const wxString &imageFile)
 {
   wxImage images;
   size_t count = wxImage::GetImageCount(imageFile);
@@ -495,22 +495,22 @@ wxString SlideShow::ToRTF()
 }
 
 
-wxString SlideShow::GetToolTip(const wxPoint &point)
+const wxString &SlideShow::GetToolTip(const wxPoint &point)
 {
-  if(ContainsPoint(point))
+  static wxString empty;
+  if (ContainsPoint(point))
   {
     m_cellPointers->m_cellUnderPointer = this;
-    if(!IsOk())
-      return(_("The image could not be displayed. It may be broken, in a wrong format or "
-               "be the result of gnuplot not being able to write the image or not being "
-               "able to understand what maxima wanted to plot.\n"
-               "One example of the latter would be: Gnuplot refuses to plot entirely "
-               "empty images"));
-    else
+    if (IsOk())
       return m_toolTip;
+
+    return _("The image could not be displayed. It may be broken, in a wrong format or "
+             "be the result of gnuplot not being able to write the image or not being "
+             "able to understand what maxima wanted to plot.\n"
+             "One example of the latter would be: Gnuplot refuses to plot entirely "
+             "empty images");
   }
-  else
-    return wxEmptyString;
+  return empty;
 }
 
 wxSize SlideShow::ToGif(wxString file)

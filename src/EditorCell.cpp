@@ -667,14 +667,15 @@ void EditorCell::RecalculateWidths(int fontsize)
 wxString EditorCell::ToHTML()
 {
   wxString retval;
-  for (EditorCell *tmp = this; tmp; tmp = dynamic_cast<EditorCell*>(tmp->GetNext()))
-  {
-    if (!tmp)
-      break;
 
+  for (auto &tmp : OnCellList())
+  {
+    auto *editor = dynamic_cast<EditorCell*>(&tmp);
+    if (!editor)
+      break;
     // TODO this needs a git investigate, the logic may be
     // wrong? Or it may have been wrong.
-    for (auto &textSnippet : tmp->m_styledText)
+    for (auto &textSnippet : editor->m_styledText)
     {
       wxString text = PrependNBSP(EscapeHTMLChars(textSnippet.GetText()));
 /*      wxString tmp = EscapeHTMLChars(textSnippet.GetText());
@@ -2241,11 +2242,7 @@ bool EditorCell::HandleOrdinaryKey(wxKeyEvent &event)
 
   if (m_historyPosition != -1)
   {
-    int len = m_textHistory.GetCount() - m_historyPosition;
-    m_textHistory.RemoveAt(m_historyPosition + 1, len - 1);
-    m_startHistory.erase(m_startHistory.begin() + m_historyPosition + 1, m_startHistory.end());
-    m_endHistory.erase(m_endHistory.begin() + m_historyPosition + 1, m_endHistory.end());
-    m_positionHistory.erase(m_positionHistory.begin() + m_historyPosition + 1, m_positionHistory.end());
+    m_history.erase(std::next(m_history.begin(), m_historyPosition + 1), m_history.end());
     m_historyPosition = -1;
   }
 
@@ -3218,14 +3215,12 @@ int EditorCell::GetLineWidth(unsigned int line, int pos)
     return indentPixels;
 
   unsigned int i = 0;
-
-  std::vector<StyledText>::const_iterator textSnippet;
-  for (textSnippet = m_styledText.begin(); textSnippet != m_styledText.end(); ++textSnippet)
+  for (auto &textSnippet : m_styledText)
   {
     if (i >= line)
       break;
-    wxString text = textSnippet->GetText();
-    if ((text.Right(1) == '\n') || (text.Right(1) == '\r'))
+    auto const &text = textSnippet->GetText();
+    if (!text.empty() && (*text.rbegin() == '\n' || *text.rbegin() == '\r'))
       i++;
   }
 
@@ -3234,21 +3229,23 @@ int EditorCell::GetLineWidth(unsigned int line, int pos)
 
   SetFont();
   int width = 0;
-  wxString text;
   int textWidth = 0;
+  const wxString *text = {};
   pos--;
   for (; (textSnippet < m_styledText.end()) && (pos >= 0); ++textSnippet)
   {
-    text = textSnippet->GetText();
-    textWidth = GetTextSize(text).GetWidth();
+    text = &textSnippet->GetText();
+    textWidth = GetTextSize(*text).GetWidth();
     width += textWidth;
-    pos -= text.Length();
+    pos -= text->Length();
   }
 
   if (pos < 0)
   {
     width -= textWidth;
-    textWidth = GetTextSize(text.SubString(0, text.Length() + pos)).GetWidth();
+    if (text)
+      //                                                        vvv note pos<0
+      textWidth = GetTextSize(text->SubString(0, text->size() + pos)).GetWidth();
     width += textWidth;
   }
 
@@ -3259,20 +3256,17 @@ int EditorCell::GetLineWidth(unsigned int line, int pos)
 }
 
 
-bool EditorCell::CanUndo()
+bool EditorCell::CanUndo() const
 {
-  return m_textHistory.GetCount() > 0 && m_historyPosition != 0;
+  return !m_history.empty() && m_historyPosition != 0;
 }
 
 void EditorCell::Undo()
 {
   if (m_historyPosition == -1)
   {
-    m_historyPosition = m_textHistory.GetCount() - 1;
-    m_textHistory.Add(m_text);
-    m_startHistory.push_back(m_selectionStart);
-    m_endHistory.push_back(m_selectionEnd);
-    m_positionHistory.push_back(m_positionOfCaret);
+    m_historyPosition = m_history.size()- 1;
+    m_history.emplace_back(m_text, m_selectionStart, m_selectionEnd, m_positionOfCaret);
   }
   else
     m_historyPosition--;
@@ -3281,11 +3275,12 @@ void EditorCell::Undo()
     return;
 
   // We cannot use SetValue() here, since SetValue() tends to move the cursor.
-  m_text = m_textHistory.Item(m_historyPosition);
+  auto const &history = m_history.at(m_historyPosition);
+  m_text = history.text;
   StyleText();
 
-  m_positionOfCaret = m_positionHistory[m_historyPosition];
-  SetSelection(m_startHistory[m_historyPosition], m_endHistory[m_historyPosition]);
+  m_positionOfCaret = history.positionOfCaret;
+  SetSelection(history.selectionStart, history.selectionEnd);
 
   m_paren1 = m_paren2 = -1;
   m_isDirty = true;
@@ -3293,11 +3288,11 @@ void EditorCell::Undo()
 }
 
 
-bool EditorCell::CanRedo()
+bool EditorCell::CanRedo() const
 {
-  return m_textHistory.GetCount() > 0 &&
+  return !m_history.empty() &&
          m_historyPosition >= 0 &&
-         m_historyPosition < ((long) m_textHistory.GetCount()) - 1;
+         m_historyPosition < int(m_history.size()) - 1;
 }
 
 void EditorCell::Redo()
@@ -3307,15 +3302,16 @@ void EditorCell::Redo()
 
   m_historyPosition++;
 
-  if (m_historyPosition >= (long) m_textHistory.GetCount())
+  if (m_historyPosition >= int(m_history.size()))
     return;
 
   // We cannot use SetValue() here, since SetValue() tends to move the cursor.
-  m_text = m_textHistory.Item(m_historyPosition);
+  auto const &history = m_history.at(m_historyPosition);
+  m_text = history.text;
   StyleText();
 
-  m_positionOfCaret = m_positionHistory[m_historyPosition];
-  SetSelection(m_startHistory[m_historyPosition], m_endHistory[m_historyPosition]);
+  m_positionOfCaret = history.positionOfCaret;
+  SetSelection(history.selectionStart, history.selectionEnd);
 
   m_paren1 = m_paren2 = -1;
   m_isDirty = true;
@@ -3325,34 +3321,21 @@ void EditorCell::Redo()
 
 void EditorCell::SaveValue()
 {
-  if (m_textHistory.GetCount() > 0)
-  {
-    if (m_textHistory.Last() == m_text)
-      return;
-  }
+  if (!m_history.empty() && m_history.back().text == m_text)
+    return;
 
   if (m_historyPosition != -1)
   {
-    int len = m_textHistory.GetCount() - m_historyPosition;
-    m_textHistory.RemoveAt(m_historyPosition, len);
-    m_startHistory.erase(m_startHistory.begin() + m_historyPosition, m_startHistory.end());
-    m_endHistory.erase(m_endHistory.begin() + m_historyPosition, m_endHistory.end());
-    m_positionHistory.erase(m_positionHistory.begin() + m_historyPosition, m_positionHistory.end());
+    m_history.erase(std::next(m_history.begin(), m_historyPosition), m_history.end());
   }
 
-  m_textHistory.Add(m_text);
-  m_startHistory.push_back(m_selectionStart);
-  m_endHistory.push_back(m_selectionEnd);
-  m_positionHistory.push_back(m_positionOfCaret);
+  m_history.emplace_back(m_text, m_selectionStart, m_selectionEnd, m_positionOfCaret);
   m_historyPosition = -1;
 }
 
 void EditorCell::ClearUndo()
 {
-  m_textHistory.Clear();
-  m_startHistory.clear();
-  m_endHistory.clear();
-  m_positionHistory.clear();
+  m_history.clear();
   m_historyPosition = -1;
 }
 

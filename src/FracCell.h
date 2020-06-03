@@ -47,8 +47,7 @@ public:
   FracCell(const FracCell &cell);
   std::unique_ptr<Cell> Copy() override {return make_unique<FracCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_divide); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_displayedDenom); }
+  InnerCellIterator InnerBegin() const override { return {&m_divide, &m_displayedDenom+1}; }
 
   //! All types of fractions we support
   enum FracType
@@ -99,6 +98,8 @@ public:
 private:
   CellPtr<Cell> m_nextToDraw;
 
+  //! The default numerator (FIXME likely unnecessary)
+  OwningCellPtr m_defaultNum;
   //! The numerator
   Cell *Num() const { return m_numParenthesis->GetInner(); }
   //! The denominator

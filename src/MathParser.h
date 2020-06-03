@@ -61,48 +61,44 @@ public:
   ~MathParser();
 
   void SetUserLabel(wxString label){ m_userDefinedLabel = label; }
-  /***
+
+  /**
    * Parse the string s, which is (correct) xml fragment.
    * Put the result in line.
    */
-  Cell *ParseLine(wxString s, CellType style = MC_TYPE_DEFAULT);
-  /***
-   * Parse the node and return the corresponding tag.
-   */
-  
-  Cell *ParseTag(wxXmlNode *node, bool all = true);
-  Cell *ParseTagContents(wxXmlNode *node);
+  OwningCellPtr ParseLine(wxString s, CellType style = MC_TYPE_DEFAULT);
+
+  //! Parse the node and return the corresponding tag.
+  OwningCellPtr ParseTag(wxXmlNode *node, bool all = true);
+  OwningCellPtr ParseTagContents(wxXmlNode *node);
 
 private:
-  //! A storage for a tag and the function to call if one encounters it
-  class TagFunction
-  {
-  public:
-    TagFunction(wxString tag, Cell * (MathParser::* function)(wxXmlNode *node)):
-      m_tag(tag),
-      m_function(function)
-      {}
-    wxString m_tag;
-    Cell * (MathParser::* m_function)(wxXmlNode *node);
-  };
-
-    //! A storage for a GroupCell tag and the function to call if one encounters it
-  class GroupCellTagFunction
-  {
-  public:
-    GroupCellTagFunction(wxString tag, GroupCell * (MathParser::* function)(wxXmlNode *node)):
-      m_tag(tag),
-      m_function(function)
-      {}
-    wxString m_tag;
-    GroupCell * (MathParser::* m_function)(wxXmlNode *node);
-  };
-
   //! A pointer to a method that handles an XML tag for a type of Cell
-  typedef Cell *(MathParser::*MathCellFunc)(wxXmlNode *node);
-  WX_DECLARE_STRING_HASH_MAP(MathCellFunc, MathCellFunctionHash);
+  using MathCellFunc = OwningCellPtr (MathParser::*)(wxXmlNode *node);
   //! A pointer to a method that handles an XML tag for a type of GroupCell
-  typedef GroupCell *(MathParser::*GroupCellFunc)(wxXmlNode *node);
+  using GroupCellFunc = OwningPtr<GroupCell> (MathParser::*)(wxXmlNode *node);
+
+  //! A storage for a tag and the function to call if one encounters it
+  struct TagFunction
+  {
+    TagFunction(const wxString &tag, MathCellFunc function):
+      m_tag(tag), m_function(function)
+    {}
+    wxString m_tag;
+    MathCellFunc m_function;
+  };
+
+  //! A storage for a GroupCell tag and the function to call if one encounters it
+  struct GroupCellTagFunction
+  {
+    GroupCellTagFunction(const wxString &tag, GroupCellFunc function) :
+      m_tag(tag), m_function(function)
+    {}
+    wxString m_tag;
+    GroupCellFunc m_function;
+  };
+
+  WX_DECLARE_STRING_HASH_MAP(MathCellFunc, MathCellFunctionHash);
   WX_DECLARE_STRING_HASH_MAP(GroupCellFunc, GroupCellFunctionHash);
 
   /*! Who you gonna call if you encounter any of these math cell tags?
@@ -110,6 +106,9 @@ private:
   static MathCellFunctionHash m_innerTags;
   //! A list of functions to call on encountering all types of GroupCell tags
   static GroupCellFunctionHash m_groupTags;
+  //! Parses attributes that apply to nearly all types of cells
+  template <class T>
+  static void ParseCommonAttrs(wxXmlNode *node, const OwningPtr<T> &cell);
   //! Parses attributes that apply to nearly all types of cells
   static void ParseCommonAttrs(wxXmlNode *node, Cell *cell);
   //! Parses attributes that apply to nearly all types of cells
@@ -149,127 +148,114 @@ private:
     \attention Any changes in GroupCell structure or methods
     has to be reflected here in order to ensure proper loading of WXMX files.
   */
-  Cell *ParseCellTag(wxXmlNode *node);
+  OwningCellPtr ParseCellTag(wxXmlNode *node);
   //! Convert a code cell XML tag to a GroupCell
-  GroupCell *GroupCellFromCodeTag(wxXmlNode *node);
+  OwningGroupPtr GroupCellFromCodeTag(wxXmlNode *node);
   //! Convert a image XML tag to a GroupCell
-  GroupCell *GroupCellFromImageTag(wxXmlNode *node);
+  OwningGroupPtr GroupCellFromImageTag(wxXmlNode *node)
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_IMAGE); }
   //! Convert a title XML tag to a GroupCell
-  GroupCell *GroupCellFromTitleTag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_TITLE);
-    }
+  OwningGroupPtr GroupCellFromTitleTag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_TITLE); }
   //! Convert a title XML tag to a GroupCell
-  GroupCell *GroupCellFromSectionTag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_SECTION);
-    }
+  OwningGroupPtr GroupCellFromSectionTag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_SECTION); }
   //! Convert a pagebreak XML tag to a GroupCell
-  GroupCell *GroupCellFromPagebreakTag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_PAGEBREAK);
-    }
+  OwningGroupPtr GroupCellFromPagebreakTag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_PAGEBREAK); }
   //! Convert a subsection XML tag to a GroupCell
-  GroupCell *GroupCellFromSubsectionTag(wxXmlNode *node);
+  OwningGroupPtr GroupCellFromSubsectionTag(wxXmlNode *node);
   //! Convert a subsubsection XML tag to a GroupCell
-  GroupCell *GroupCellFromSubsubsectionTag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_SUBSUBSECTION);
-    }
+  OwningGroupPtr GroupCellFromSubsubsectionTag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_SUBSUBSECTION); }
   //! Convert a heading5 XML tag to a GroupCell
-  GroupCell *GroupCellHeading5Tag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_HEADING5);
-    }
+  OwningGroupPtr GroupCellHeading5Tag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_HEADING5); }
   //! Convert a heading6 XML tag to a GroupCell
-  GroupCell *GroupCellHeading6Tag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_HEADING6);
-    }
+  OwningGroupPtr GroupCellHeading6Tag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_HEADING6); }
   //! Convert a text cell XML tag to a GroupCell
-  GroupCell *GroupCellFromTextTag(wxXmlNode *WXUNUSED(node))
-    {
-      return new GroupCell(m_configuration, GC_TYPE_TEXT);
-    }
+  OwningGroupPtr GroupCellFromTextTag(wxXmlNode *WXUNUSED(node))
+  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_TEXT); }
   /* @} */
   
   /*! \defgroup MathCellParsing Methods that generate Cell objects from XML
     @{
   */
-  //! Parse an editor XML tag to a Cell. 
-  Cell *ParseEditorTag(wxXmlNode *node);
+  //! Parse an editor XML tag to a Cell.
+  OwningCellPtr ParseEditorTag(wxXmlNode *node);
   //! Parse an frac XML tag to a Cell. 
-  Cell *ParseFracTag(wxXmlNode *node);
+  OwningCellPtr ParseFracTag(wxXmlNode *node);
   //! Parse a text XML tag to a Cell. 
-  Cell *ParseText(wxXmlNode *node, TextStyle style = TS_DEFAULT);
+  OwningCellPtr ParseText(wxXmlNode *node, TextStyle style = TS_DEFAULT);
   //! Parse a Variable name tag to a Cell. 
-  Cell *ParseVariableNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_VARIABLE);}
+  OwningCellPtr ParseVariableNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_VARIABLE);}
   //! Parse an Operator name tag to a Cell. 
-  Cell *ParseOperatorNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_FUNCTION);}
+  OwningCellPtr ParseOperatorNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_FUNCTION);}
   //! Parse a miscellaneous text tag to a Cell. 
-  Cell *ParseMiscTextTag(wxXmlNode *node);
+  OwningCellPtr ParseMiscTextTag(wxXmlNode *node);
   //! Parse a number tag to a Cell. 
-  Cell *ParseNumberTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_NUMBER);}
+  OwningCellPtr ParseNumberTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_NUMBER);}
   //! Parse a hidden operator tag to a Cell. 
-  Cell *ParseHiddenOperatorTag(wxXmlNode *node);
+  OwningCellPtr ParseHiddenOperatorTag(wxXmlNode *node);
   //! Parse an hidden operator tag to a Cell. 
-  Cell *ParseGreekTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_GREEK_CONSTANT);}
+  OwningCellPtr ParseGreekTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_GREEK_CONSTANT);}
   //! Parse a special constant tag to a Cell. 
-  Cell *ParseSpecialConstantTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_SPECIAL_CONSTANT);}
+  OwningCellPtr ParseSpecialConstantTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_SPECIAL_CONSTANT);}
   //! Parse a function name tag to a Cell. 
-  Cell *ParseFunctionNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_FUNCTION);}
+  OwningCellPtr ParseFunctionNameTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_FUNCTION);}
   //! Parse a space tag to a Cell.
-  Cell *ParseSpaceTag(wxXmlNode *WXUNUSED(node)){return new TextCell(NULL, m_configuration, wxT(" "));}
-  /*! Parse a math-in-maths tag to a Cell. 
+  OwningCellPtr ParseSpaceTag(wxXmlNode *WXUNUSED(node)){return MakeOwned<TextCell>(NULL, m_configuration, wxT(" "));}
+  /*! Parse a math-in-maths tag to a Cell.
 
     \todo Does such a thing actually exist?
    */
-  Cell *ParseMthTag(wxXmlNode *node);
+  OwningCellPtr ParseMthTag(wxXmlNode *node);
   //! Parse an output label tag to a Cell. 
-  Cell *ParseOutputLabelTag(wxXmlNode *node);
+  OwningCellPtr ParseOutputLabelTag(wxXmlNode *node);
   //! Parse a string tag to a Cell. 
-  Cell *ParseStringTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_STRING);}
+  OwningCellPtr ParseStringTag(wxXmlNode *node){return ParseText(node->GetChildren(), TS_STRING);}
   //! Parse a highlight tag to a Cell. 
-  Cell *ParseHighlightTag(wxXmlNode *node);
+  OwningCellPtr ParseHighlightTag(wxXmlNode *node);
   //! Parse a image tag to a Cell. 
-  Cell *ParseImageTag(wxXmlNode *node);
+  OwningCellPtr ParseImageTag(wxXmlNode *node);
   //! Parse a animation tag to a Cell. 
-  Cell *ParseSlideshowTag(wxXmlNode *node);
+  OwningCellPtr ParseSlideshowTag(wxXmlNode *node);
   //! Parse a charcode tag to a Cell. 
-  Cell *ParseCharCode(wxXmlNode *node);
+  OwningCellPtr ParseCharCode(wxXmlNode *node);
   //! Parse a superscript tag to a Cell. 
-  Cell *ParseSupTag(wxXmlNode *node);
+  OwningCellPtr ParseSupTag(wxXmlNode *node);
   //! Parse a subscript tag to a Cell. 
-  Cell *ParseSubTag(wxXmlNode *node);
+  OwningCellPtr ParseSubTag(wxXmlNode *node);
   //! Parse a abs tag to a Cell. 
-  Cell *ParseAbsTag(wxXmlNode *node);
+  OwningCellPtr ParseAbsTag(wxXmlNode *node);
   //! Parse a conjugate cell tag to a Cell. 
-  Cell *ParseConjugateTag(wxXmlNode *node);
+  OwningCellPtr ParseConjugateTag(wxXmlNode *node);
   //! Parse an index tag to a Cell. 
-  Cell *ParseUnderTag(wxXmlNode *node);
+  OwningCellPtr ParseUnderTag(wxXmlNode *node);
   //! Parse an table tag to a Cell. 
-  Cell *ParseTableTag(wxXmlNode *node);
+  OwningCellPtr ParseTableTag(wxXmlNode *node);
   //! Parse an atcell tag to a Cell. 
-  Cell *ParseAtTag(wxXmlNode *node);
+  OwningCellPtr ParseAtTag(wxXmlNode *node);
   //! Parse a diff tag to a Cell. 
-  Cell *ParseDiffTag(wxXmlNode *node);
+  OwningCellPtr ParseDiffTag(wxXmlNode *node);
   //! Parse a sum tag to a Cell. 
-  Cell *ParseSumTag(wxXmlNode *node);
+  OwningCellPtr ParseSumTag(wxXmlNode *node);
   //! Parse a integral tag to a Cell. 
-  Cell *ParseIntTag(wxXmlNode *node);
+  OwningCellPtr ParseIntTag(wxXmlNode *node);
   //! Parse a function tag to a Cell. 
-  Cell *ParseFunTag(wxXmlNode *node);
+  OwningCellPtr ParseFunTag(wxXmlNode *node);
   //! Parse a square root tag to a Cell. 
-  Cell *ParseSqrtTag(wxXmlNode *node);
+  OwningCellPtr ParseSqrtTag(wxXmlNode *node);
   //! Parse a lim() tag to a Cell. 
-  Cell *ParseLimitTag(wxXmlNode *node);
+  OwningCellPtr ParseLimitTag(wxXmlNode *node);
   //! Parse a parenthesis() tag to a Cell. 
-  Cell *ParseParenTag(wxXmlNode *node);
+  OwningCellPtr ParseParenTag(wxXmlNode *node);
   //! Parse a super-and-subscript cell tag to a Cell. 
-  Cell *ParseSubSupTag(wxXmlNode *node);
+  OwningCellPtr ParseSubSupTag(wxXmlNode *node);
   //! Parse a pre-and-post-super-and-subscript cell tag to a Cell. 
-  Cell *ParseMmultiscriptsTag(wxXmlNode *node);
-  // @}
+  OwningCellPtr ParseMmultiscriptsTag(wxXmlNode *node);
+  //! @}
   //! The last user defined label
   wxString m_userDefinedLabel;
   //! A RegEx that catches the last graphics placeholder

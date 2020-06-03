@@ -33,8 +33,7 @@ public:
   SubSupCell(const SubSupCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<SubSupCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_preSupCell); }
+  InnerCellIterator InnerBegin() const override { return {&m_baseCell, &m_preSupCell+1}; }
 
   void SetBase(std::unique_ptr<Cell> &&base);
   void SetIndex(std::unique_ptr<Cell> &&index);

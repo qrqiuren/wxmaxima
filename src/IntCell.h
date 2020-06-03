@@ -43,8 +43,7 @@ public:
   IntCell(const IntCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<IntCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_base); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_var); }
+  InnerCellIterator InnerBegin() const override { return {&m_base, &m_var+1}; }
 
   void RecalculateHeight(int fontsize) override;
 

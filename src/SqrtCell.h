@@ -52,8 +52,7 @@ public:
   SqrtCell(const SqrtCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<SqrtCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_innerCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
+  InnerCellIterator InnerBegin() const override { return {&m_innerCell, &m_close+1}; }
 
   void SetInner(std::unique_ptr<Cell> &&inner);
 

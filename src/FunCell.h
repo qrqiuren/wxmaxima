@@ -56,8 +56,7 @@ public:
   FunCell(const FunCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<FunCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_nameCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_argCell); }
+  InnerCellIterator InnerBegin() const override { return {&m_nameCell, &m_argCell+1}; }
 
   void SetName(std::unique_ptr<Cell> &&name);
   void SetArg(std::unique_ptr<Cell> &&arg);

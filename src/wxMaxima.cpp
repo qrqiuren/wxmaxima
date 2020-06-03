@@ -1176,10 +1176,10 @@ void wxMaxima::FirstOutput()
  */
 TextCell *wxMaxima::ConsoleAppend(wxString s, CellType type, const wxString &userLabel)
 {
-  TextCell *lastLine = NULL;
+  TextCell *lastLine = {};
   // If we want to append an error message to the worksheet and there is no cell
   // that can contain it we need to create such a cell.
-  if (m_worksheet->GetTree() == NULL)
+  if (!m_worksheet->GetTree())
     m_worksheet->InsertGroupCells(
       make_unique<GroupCell>(&(m_worksheet->m_configuration), GC_TYPE_CODE));
 
@@ -1316,7 +1316,7 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
   {
     TextCell *incompleteTextCell = m_worksheet->GetCurrentTextCell();
 
-    if(incompleteTextCell != NULL)
+    if (incompleteTextCell)
     {
       int pos = s.Find("\n");
       wxString newVal = incompleteTextCell->GetValue();
@@ -1376,7 +1376,7 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
     m_worksheet->InsertLine(std::move(head), true);
   }
 
-  if(cell)
+  if (cell)
   {
     m_worksheet->m_configuration->AdjustWorksheetSize();
     m_worksheet->Recalculate(cell->GetGroup());
@@ -8461,7 +8461,7 @@ void wxMaxima::PopupMenu(wxCommandEvent &event)
         {
           GroupCell *SelectionEnd = SelectionStart;
           while (
-            (SelectionEnd->m_next != NULL)
+            (SelectionEnd->m_next)
             && (SelectionEnd->GetNext()->IsLesserGCType(SelectionStart->GetGroupType()))
             )
             SelectionEnd = SelectionEnd->GetNext();

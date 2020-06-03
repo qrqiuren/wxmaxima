@@ -37,10 +37,8 @@ class LimitCell final : public Cell
 public:
   LimitCell(GroupCell *parent, Configuration **config);
   LimitCell(const LimitCell &cell);
-  std::unique_ptr<Cell> Copy() override { return make_unique<LimitCell>(*this); }
-
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_base); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<new LimitCell>(*this); }
+  InnerCellIterator InnerBegin() const override { return {&m_base, &m_close+1}; }
 
   void RecalculateHeight(int fontsize) override;
 

@@ -54,8 +54,7 @@ public:
   ParenCell(const ParenCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<ParenCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_innerCell); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
+  InnerCellIterator InnerBegin() const override { return {&m_innerCell, &m_close+1}; }
 
   Cell *GetInner() const { return m_innerCell.get(); }
   void SetInner(std::unique_ptr<Cell> &&inner, CellType type = MC_TYPE_DEFAULT);

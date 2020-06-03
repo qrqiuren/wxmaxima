@@ -201,7 +201,7 @@ public:
   //! Recalculate the widths of the current cell.
   void RecalculateWidths(int fontsize) override;
 
-  virtual void Draw(wxPoint point) override;
+  void Draw(wxPoint point) override;
 
   wxString ToString() override;
 
@@ -409,13 +409,13 @@ public:
   void CaretToPosition(int pos);
 
   //! True, if there is undo information for this cell
-  bool CanUndo(); 
+  bool CanUndo() const;
 
   //! Issue an undo command
   void Undo();
 
   //! True, if a redo can be done for this cell.
-  bool CanRedo();
+  bool CanRedo() const;
 
   //! Issu a redo command
   void Redo();
@@ -552,14 +552,14 @@ public:
 
   Cell *GetNextToDraw() const override {return m_nextToDraw;}
 
-protected:
-  void FontsChanged() override
-    {
-      ResetSize();
-      ResetData();
-      m_widths.clear();
-    }
 private:
+  void FontsChanged() override
+  {
+    ResetSize();
+    ResetData();
+    m_widths.clear();
+  }
+
   CellPtr<Cell> m_nextToDraw;
   //! Determines the size of a text snippet
   wxSize GetTextSize(wxString const &text);
@@ -628,11 +628,7 @@ private:
     int GetWidth() const {return m_width;}
     bool SizeKnown() const {return GetWidth() >= 0;}
     //! Returns the piece of text
-    wxString GetText() const
-    {
-      return m_text;
-    }
-
+    const wxString &GetText() const {return m_text;}
 
   
     //! Changes the piece of text kept in this token
@@ -698,11 +694,18 @@ private:
    */
   wxString InterpretEscapeString(const wxString &txt) const;
 
+  struct State
+  {
+    wxString text;
+    int selectionStart, selectionEnd;
+    int positionOfCaret;
+    State(const wxString &text, int selStart, int selEnd, int caretPos) :
+        text(text), selectionStart(selStart), selectionEnd(selEnd), positionOfCaret(caretPos)
+    {}
+  };
+
   wxString m_text;
-  wxArrayString m_textHistory;
-  std::vector<int> m_positionHistory;
-  std::vector<int> m_startHistory;
-  std::vector<int> m_endHistory;
+  std::vector<State> m_history;
   //! Where in the undo history are we?
   ptrdiff_t m_historyPosition;
   //! Where inside this cell is the cursor?

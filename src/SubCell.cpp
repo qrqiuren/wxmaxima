@@ -45,10 +45,12 @@ SubCell::SubCell(const SubCell &cell):
     SetIndex(cell.m_indexCell->CopyList());
 }
 
-void SubCell::SetIndex(std::unique_ptr<Cell> &&index)
+Cell *SubCell::SetIndex(std::unique_ptr<Cell> &&index)
 {
+  auto *cell = index.get();
   if (index)
     m_indexCell = std::move(index);
+  return cell;
 }
 
 void SubCell::SetBase(std::unique_ptr<Cell> &&base)

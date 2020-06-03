@@ -47,8 +47,7 @@ public:
   SumCell(const SumCell &cell);
   std::unique_ptr<Cell> Copy() override { return make_unique<SumCell>(*this); }
 
-  InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_under); }
-  InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_paren); }
+  InnerCellIterator InnerBegin() const override { return {&m_under, &m_paren+1}; }\
   
   void RecalculateHeight(int fontsize) override;
   void RecalculateWidths(int fontsize) override;

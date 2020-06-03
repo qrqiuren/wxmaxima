@@ -35,9 +35,7 @@ public:
   std::unique_ptr<Cell> Copy() override { return make_unique<MatrCell>(*this); }
 
   InnerCellIterator InnerBegin() const override
-  { return m_cells.empty() ? InnerCellIterator{} : InnerCellIterator(&m_cells.front()); }
-  InnerCellIterator InnerEnd() const override
-  { return m_cells.empty() ? InnerCellIterator{} : ++InnerCellIterator(&m_cells.back()); }
+  { return m_cells.empty() ? InnerCellIterator{} : InnerCellIterator{&m_cells.front(), &m_cells.back()+1}; }
 
   void RecalculateHeight(int fontsize) override;
 

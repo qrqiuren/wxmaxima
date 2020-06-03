@@ -863,7 +863,7 @@ wxString TextCell::ToString()
   default:
   {}
   }
-  if((m_next != NULL) && (m_next->BreakLineHere()))
+  if (m_next && m_next->BreakLineHere())
     text += "\n";
   
   return text;
@@ -943,7 +943,7 @@ wxString TextCell::ToMatlab()
 	default:
 	{}
 	}
-	if((m_next != NULL) && (m_next->BreakLineHere()))
+    if (m_next && m_next->BreakLineHere())
 	  text += "\n";
 
 	return text;
@@ -1606,7 +1606,7 @@ wxString TextCell::GetDiffPart()
 
 bool TextCell::IsShortNum()
 {
-  if (m_next != NULL)
+  if (m_next)
     return false;
   else if (m_text.Length() < 4)
     return true;
