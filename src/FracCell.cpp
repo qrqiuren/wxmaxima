@@ -246,8 +246,6 @@ wxString FracCell::ToString()
           break;
         s += tmp->GetDiffPart();
         tmp = tmp->GetNext();   // Skip the *
-        if (!tmp)
-          break;
       }
     }
   }
@@ -279,16 +277,14 @@ wxString FracCell::ToMatlab()
     {
       for (Cell *tmp = Denom(); tmp; tmp = tmp->GetNext())
 	  {
-        tmp = tmp->GetNext();   // Skip the d
+		tmp = tmp->GetNext();   // Skip the d
         if (!tmp)
 		  break;
-        tmp = tmp->GetNext();   // Skip the *
+		tmp = tmp->GetNext();   // Skip the *
         if (!tmp)
 		  break;
 		s += tmp->GetDiffPart();
-        tmp = tmp->GetNext();   // Skip the *
-        if (!tmp)
-		  break;
+		tmp = tmp->GetNext();   // Skip the *
 	  }
 	}
   }

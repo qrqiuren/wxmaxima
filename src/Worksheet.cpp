@@ -402,8 +402,6 @@ Worksheet::~Worksheet()
 
   ClearDocument();
   m_configuration = NULL;
-  wxDELETE(m_tree);
-  m_tree =NULL;
   m_observer = nullptr;
 }
 
@@ -697,16 +695,16 @@ void Worksheet::OnPaint(wxPaintEvent &WXUNUSED(event))
   m_lastBottom = bottom;
 }
 
-GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where)
+GroupCell *Worksheet::InsertGroupCells(std::unique_ptr<GroupCell> &&cells, GroupCell *where)
 {
-  return InsertGroupCells(cells, where, &treeUndoActions);
+  return InsertGroupCells(std::move(cells), where, &treeUndoActions);
 }
 
 // InsertGroupCells
 // inserts groupcells after position "where" (NULL = top of the document)
 // Multiple groupcells can be inserted when tree->m_next != NULL
 // Returns the pointer to the last inserted group cell to have fun with
-GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
+GroupCell *Worksheet::InsertGroupCells(std::unique_ptr<GroupCell> &&cells, GroupCell *where,
                                        UndoActions *undoBuffer)
 {
   bool worksheetSizeHasChanged = true;
@@ -714,15 +712,15 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
     worksheetSizeHasChanged = false;
 
   if (!cells)
-    return NULL; // nothing to insert
+    return {}; // nothing to insert
 
   m_configuration->AdjustWorksheetSize(true);
   bool renumbersections = false; // only renumber when true
-  GroupCell *next; // next gc to insertion point
+  std::unique_ptr<GroupCell> next; // next gc to insertion point
   GroupCell *prev;
 
   // Find the last cell in the tree that is to be inserted
-  GroupCell *lastOfCellsToInsert = cells;
+  GroupCell *lastOfCellsToInsert = cells.get();
   if (lastOfCellsToInsert->IsFoldable() || (lastOfCellsToInsert->GetGroupType() == GC_TYPE_IMAGE))
     renumbersections = true;
   while (lastOfCellsToInsert->m_next)
@@ -736,22 +734,22 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
     where = {};
 
   if (where)
-    next = where->GetNext();
-  else
+    next = where->TakeNextGroup();
+  if (!where)
   {
-    next = GetTree(); // where == NULL
-    m_tree = cells;
+    next = std::move(m_tree);
+    m_tree = std::move(cells);
   }
   prev = where;
 
   cells->m_previous = where;
-  lastOfCellsToInsert->m_next = next;
   lastOfCellsToInsert->SetNextToDraw(next);
+  lastOfCellsToInsert->m_next = std::move(next);
 
   if (prev)
   {
-    prev->m_next = cells;
     prev->SetNextToDraw(cells);
+    prev->m_next = std::move(cells);
   }
   if (next)
     next->m_previous = lastOfCellsToInsert;
@@ -765,7 +763,7 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
   SetSaved(false); // document has been modified
 
   if (undoBuffer)
-    TreeUndo_MarkCellsAsAdded(cells, lastOfCellsToInsert, undoBuffer);
+    TreeUndo_MarkCellsAsAdded(cells.get(), lastOfCellsToInsert, undoBuffer);
 
   if(worksheetSizeHasChanged)
     UpdateMLast();
@@ -845,7 +843,7 @@ GroupCell *Worksheet::GetWorkingGroup(bool resortToLast)
   return tmp;
 }
 
-void Worksheet::InsertLine(Cell *newCell, bool forceNewLine)
+void Worksheet::InsertLine(std::unique_ptr<Cell> &&newCell, bool forceNewLine)
 {
   if (!newCell)
     return;
@@ -862,7 +860,7 @@ void Worksheet::InsertLine(Cell *newCell, bool forceNewLine)
   newCell->ForceBreakLine(forceNewLine);
   newCell->SetGroupList(tmp);
   
-  tmp->AppendOutput(newCell);
+  tmp->AppendOutput(std::move(newCell));
   
   UpdateConfigurationClientSize();
   if (!tmp->m_next)
@@ -899,7 +897,7 @@ void Worksheet::SetZoomFactor(double newzoom, bool recalc)
 
   m_configuration->SetZoomFactor(newzoom);
   // Determine if we have a sane thing we can scroll to.
-  Cell *cellToScrollTo = NULL;
+  Cell *cellToScrollTo = {};
   if (CaretVisibleIs())
     cellToScrollTo = GetHCaret();
   if (!cellToScrollTo)
@@ -911,12 +909,12 @@ void Worksheet::SetZoomFactor(double newzoom, bool recalc)
     wxPoint topleft;
     CalcUnscrolledPosition(0, 0, &topleft.x, &topleft.y);
     cellToScrollTo = GetTree();
-    while (cellToScrollTo != NULL)
+    while (cellToScrollTo)
     {
       wxRect rect = cellToScrollTo->GetRect();
       if (rect.GetBottom() > topleft.y)
         break;
-      cellToScrollTo = cellToScrollTo->m_next;
+      cellToScrollTo = cellToScrollTo->m_next.get();
     }
   }
   if (recalc)
@@ -1028,12 +1026,12 @@ void Worksheet::OnSize(wxSizeEvent& WXUNUSED(event))
     wxPoint topleft;
     CalcUnscrolledPosition(0, 0, &topleft.x, &topleft.y);
     CellToScrollTo = GetTree();
-    while (CellToScrollTo != NULL)
+    while (CellToScrollTo)
     {
       wxRect rect = CellToScrollTo->GetRect();
       if (rect.GetBottom() > topleft.y)
         break;
-      CellToScrollTo = CellToScrollTo->m_next;
+      CellToScrollTo = CellToScrollTo->m_next.get();
     }
   }
 
@@ -1251,15 +1249,15 @@ GroupCell *Worksheet::TearOutTree(GroupCell *start, GroupCell *end)
   if (!start || !end)
     return {};
   GroupCell *prev = start->GetPrevious();
-  GroupCell *next = end->GetNext();
+  auto next_ = static_unique_ptr_cast<GroupCell>(std::move(end->m_next));
 
-  end->m_next = NULL;
   end->SetNextToDraw(NULL);
   start->m_previous = {};
 
+  auto *next = next_.get();
   if (prev)
   {
-    prev->m_next = next;
+    prev->m_next = std::move(next_);
     prev->SetNextToDraw(next);
   }
   if (next)
@@ -2387,8 +2385,8 @@ bool Worksheet::Copy(bool astext)
         int bitmapScale = 3;
         wxConfig::Get()->Read(wxT("bitmapScale"), &bitmapScale);
         BitmapOut bmp_scaled(&m_configuration, bitmapScale);
-        Cell *tmp2 = CopySelection();
-        if (bmp_scaled.SetData(tmp2, 4000000))
+        auto selTree = CopySelection();
+        if (bmp_scaled.SetData(std::move(selTree), 4000000))
         {
           bmp = bmp_scaled.GetBitmap();
           data->Add(new wxBitmapDataObject(bmp));
@@ -2496,7 +2494,7 @@ bool Worksheet::CopyMatlab()
 
   wxString result;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
   {
     if (tmp->HardLineBreak() && !firstcell)
 	  result += wxT("\n");
@@ -2524,7 +2522,6 @@ bool Worksheet::CopyTeX()
   if (!m_cellPointers.m_selectionStart)
     return false;
 
-  Cell *tmp = m_cellPointers.m_selectionStart;
 
   bool inMath = false;
   wxString label;
@@ -2533,6 +2530,7 @@ bool Worksheet::CopyTeX()
   bool wrapLatexMath = true;
   config->Read(wxT("wrapLatexMath"), &wrapLatexMath);
 
+  auto tmp = m_cellPointers.m_selectionStart;
   wxString s;
   if (tmp->GetType() != MC_TYPE_GROUP)
   {
@@ -2548,9 +2546,9 @@ bool Worksheet::CopyTeX()
   }
   else
   {
-    for (GroupCell *gc = dynamic_cast<GroupCell *>(tmp); gc; gc = gc->GetNext())
+    for (auto *gc = dynamic_cast<GroupCell *>(tmp); gc; gc = gc->GetNext())
     {
-      int imgCtr;
+      int imgCtr = 0;
       s += gc->ToTeX(wxEmptyString, wxEmptyString, &imgCtr);
       if (gc == m_cellPointers.m_selectionEnd)
         break;
@@ -2581,7 +2579,7 @@ bool Worksheet::CopyText()
 
   wxString result;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
   {
     if (tmp->HardLineBreak() && !firstcell)
       result += wxT("\n");
@@ -2618,11 +2616,11 @@ bool Worksheet::CopyCells()
     wxString wxm;
     wxString str;
     wxString rtf = RTFStart();
-
+    GroupCell *selStart = m_cellPointers.m_selectionStart->GetGroup();
     GroupCell *end = m_cellPointers.m_selectionEnd->GetGroup();
+
     bool firstcell = true;
-    for (GroupCell *tmp = m_cellPointers.m_selectionStart->GetGroup();
-         tmp; tmp = tmp->GetNext())
+    for (GroupCell *tmp = selStart; tmp; tmp = tmp->GetNext())
     {
       if (!firstcell)
         str += wxT("\n");
@@ -2649,32 +2647,32 @@ bool Worksheet::CopyCells()
 
     if (m_configuration->CopyBitmap())
     {
-      Cell *tmp = CopySelection();
+      auto tmp = CopySelection();
       int bitmapScale = 3;
       wxConfig::Get()->Read(wxT("bitmapScale"), &bitmapScale);
       BitmapOut bmp(&m_configuration, bitmapScale);
-      if (bmp.SetData(tmp, 4000000))
+      if (bmp.SetData(std::move(tmp), 4000000))
         data->Add(new wxBitmapDataObject(bmp.GetBitmap()));
     }
 
 #if wxUSE_ENH_METAFILE
     if (m_configuration->CopyEMF())
     {
-      Cell *tmp = CopySelection();
+      auto tmp = CopySelection();
       Emfout emf(&m_configuration);
-      emf.SetData(tmp);
+      emf.SetData(std::move(tmp));
       data->Add(emf.GetDataObject());
     }
 #endif
     if (m_configuration->CopySVG())
     {
-      Cell *tmp = CopySelection();
+      auto tmp = CopySelection();
       Svgout svg(&m_configuration);
-      svg.SetData(tmp);
+      svg.SetData(std::move(tmp));
       data->Add(svg.GetDataObject());
     }
 
-    wxTheClipboard->SetData(data);
+    wxTheClipboard->SetData(data.release());
     wxTheClipboard->Close();
     Recalculate();
     return true;
@@ -2825,13 +2823,14 @@ void Worksheet::SetCellStyle(GroupCell *group, GroupType style)
   wxString cellContents;
   if(group->GetInput())
     cellContents = group->GetInput()->GetValue();
-  GroupCell *newGroupCell = new GroupCell(&m_configuration, style);
+  auto newGroupCell = make_unique<GroupCell>(&m_configuration, style);
   newGroupCell->GetInput()->SetValue(cellContents);
+  auto *newGroupView = newGroupCell.get(); // potentially unneded if SetActiveCell can go before InsertGroupCells
   GroupCell *prev = group->GetPrevious();
   DeleteRegion(group,group);
   TreeUndo_AppendAction();
-  InsertGroupCells(newGroupCell, prev);
-  SetActiveCell(newGroupCell->GetEditable(), false);
+  InsertGroupCells(std::move(newGroupCell), prev);
+  SetActiveCell(newGroupView->GetEditable(), false);
   SetSaved(false);
   Recalculate(true);
   RequestRedraw();
@@ -2884,30 +2883,29 @@ void Worksheet::DeleteRegion(GroupCell *start, GroupCell *end, UndoActions *undo
   if (end == m_last)
     m_last = cellBeforeStart;
 
+  auto *end_next = end->m_next.get();
+
   // Unlink the to-be-deleted cells from the worksheet.
   if (!start->m_previous)
-    m_tree = end->GetNext();
+    m_tree = static_unique_ptr_cast<GroupCell>(std::move(end->m_next));
   else
   {
-    start->m_previous->m_next = end->m_next;
-    start->m_previous->SetNextToDraw(end->m_next);
+    start->m_previous->m_next = std::move(end->m_next)
+    start->m_previous->SetNextToDraw(end_next);
   }
 
-  if (end->m_next)
-    end->m_next->m_previous = start->m_previous;
+  if (end_next)
+    end_next->m_previous = start->m_previous;
   else
   {
-    if (start->m_previous)
-    {
-      start->m_previous->m_next = NULL;
-      start->m_previous->SetNextToDraw(NULL);
-    }
+    wxASSERT(!start->m_previous->m_next);
+    start->m_previous->SetNextToDraw(nullptr);
   }
 
-  // Add an "end of tree" marker to both ends of the list of deleted cells
-  end->m_next = NULL;
-  end->SetNextToDraw(NULL);
-  start->m_previous = {};
+  // Verify that both ends of the list of deleted cells are detached from the tree
+  wxASSERT(!end->m_next);
+  wxASSERT(!start->m_previous);
+  end->SetNextToDraw(nullptr);
 
   // Do we have an undo buffer for this action?
   if (undoBuffer)
@@ -2965,7 +2963,7 @@ void Worksheet::OpenQuestionCaret(const wxString &txt)
   // If we still haven't a cell to put the answer in we now create one.
   if (!m_cellPointers.m_answerCell)
   {
-    auto *answerCell = new EditorCell(group, &m_configuration);
+    auto answerCell = make_unique<EditorCell>(group, &m_configuration);
     m_cellPointers.m_answerCell = answerCell;
     answerCell->SetType(MC_TYPE_INPUT);
     bool autoEvaluate = false;
@@ -2981,12 +2979,13 @@ void Worksheet::OpenQuestionCaret(const wxString &txt)
     }
     answerCell->CaretToEnd();
 
-    group->AppendOutput(answerCell);
+    group->AppendOutput(std::move(answerCell));
+
 
     // If we filled in an answer and "AutoAnswer" is true we issue an evaluation event here.
     if(autoEvaluate)
     {
-      wxMenuEvent *EvaluateEvent = new wxMenuEvent(wxEVT_MENU, wxMaximaFrame::menu_evaluate);
+      auto *EvaluateEvent = new wxMenuEvent(wxEVT_MENU, wxMaximaFrame::menu_evaluate);
       GetParent()->GetEventHandler()->QueueEvent(EvaluateEvent);
     }
     RecalculateForce();
@@ -3031,7 +3030,8 @@ void Worksheet::OpenHCaret(const wxString &txt, GroupType type)
   }
 
   // insert a new group cell
-  GroupCell *group = new GroupCell(&m_configuration, type, txt);
+  auto ownedGroup = make_unique<GroupCell>(&m_configuration, type, txt);
+  GroupCell *const group = ownedGroup.get();
   // check how much to unfold for this type
   if (m_hCaretPosition)
   {
@@ -3049,7 +3049,7 @@ void Worksheet::OpenHCaret(const wxString &txt, GroupType type)
     CodeCellVisibilityChanged();
   }
 
-  InsertGroupCells(group, m_hCaretPosition);
+  InsertGroupCells(std::move(ownedGroup), m_hCaretPosition);
   // Recalculate(group, false);
 
   // activate editor
@@ -3937,11 +3937,11 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
           if (event.CmdDown())
           {
             GroupCell *tmp = m_cellPointers.m_selectionEnd.CastAs<GroupCell*>();
-            if (tmp->m_next)
+            if (tmp->GetNext())
             {
               do tmp = tmp->GetNext();
               while (
-                tmp->m_next && (
+                tmp->GetNext() && (
                   (
                     (tmp->GetGroupType() != GC_TYPE_TITLE) &&
                     (tmp->GetGroupType() != GC_TYPE_SECTION) &&
@@ -3966,11 +3966,11 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
           if (event.CmdDown())
           {
             GroupCell *tmp = m_hCaretPosition;
-            if (tmp->m_next)
+            if (tmp->GetNext())
             {
               do tmp = tmp->GetNext();
               while (
-                tmp->m_next && (
+                tmp->GetNext() && (
                   (tmp->GetGroupType() != GC_TYPE_TITLE) &&
                   (tmp->GetGroupType() != GC_TYPE_SECTION) &&
                   (tmp->GetGroupType() != GC_TYPE_SUBSECTION) &&
@@ -4169,7 +4169,7 @@ void Worksheet::GetMaxPoint(int *width, int *height)
   int currentHeight = m_configuration->GetIndent();
   *width = m_configuration->GetBaseIndent();
 
-  for (Cell *tmp = GetTree(); tmp; tmp = tmp->m_next)
+  for (Cell *tmp = GetTree(); tmp; tmp = tmp->GetNext())
   {
     currentHeight += tmp->GetHeightList();
     currentHeight += m_configuration->GetGroupSkip();
@@ -4411,21 +4411,19 @@ void Worksheet::RequestRedraw(wxRect rect)
 void Worksheet::DestroyTree()
 {
   m_hCaretActive = false;
-  SetHCaret(NULL);
+  SetHCaret(nullptr);
   TreeUndo_ClearUndoActionList();
   TreeUndo_ClearRedoActionList();
-  wxDELETE(m_tree);
-  m_tree = NULL;
-  m_last = NULL;
+  m_tree.reset();
+  wxASSERT(!m_last);
 }
 
 /***
  * Copy tree
  */
-GroupCell *Worksheet::CopyTree()
+std::unique_ptr<GroupCell> Worksheet::CopyTree()
 {
-  auto *tree = GetTree() ? dynamic_cast<GroupCell*>(GetTree()->CopyList()) : nullptr;
-  return tree;
+  return GetTree() ? static_unique_ptr_cast<GroupCell>(GetTree()->CopyList()) : nullptr;
 }
 
 /***
@@ -4433,13 +4431,13 @@ GroupCell *Worksheet::CopyTree()
  */
 bool Worksheet::CopyBitmap()
 {
-  Cell *tmp = CopySelection();
+  auto tmp = CopySelection();
 
   int bitmapScale = 3;
   wxConfig::Get()->Read(wxT("bitmapScale"), &bitmapScale);
 
   BitmapOut bmp(&m_configuration, bitmapScale);
-  bmp.SetData(tmp);
+  bmp.SetData(std::move(tmp));
 
   bool retval = bmp.ToClipboard();
   Recalculate();
@@ -4458,10 +4456,10 @@ bool Worksheet::CopyAnimation()
 
 bool Worksheet::CopySVG()
 {
-  Cell *tmp = CopySelection();
+  auto tmp = CopySelection();
 
   Svgout svg(&m_configuration);
-  svg.SetData(tmp);
+  svg.SetData(std::move(tmp));
 
   bool retval = svg.ToClipboard();
   Recalculate();
@@ -4472,10 +4470,10 @@ bool Worksheet::CopySVG()
 #if wxUSE_ENH_METAFILE
 bool Worksheet::CopyEMF()
 {
-  Cell *tmp = CopySelection();
+  auto tmp = CopySelection();
 
   Emfout emf(&m_configuration);
-  emf.SetData(tmp);
+  emf.SetData(std::move(tmp));
 
   bool retval = emf.ToClipboard();
   Recalculate();
@@ -4531,10 +4529,10 @@ wxSize Worksheet::CopyToFile(const wxString &file)
   }
   else
   {
-    Cell *tmp = CopySelection();
+    auto tmp = CopySelection();
 
     BitmapOut bmp(&m_configuration);
-    bmp.SetData(tmp);
+    bmp.SetData(std::move(tmp));
 
     wxSize retval = bmp.ToFile(file);
 
@@ -4545,10 +4543,10 @@ wxSize Worksheet::CopyToFile(const wxString &file)
 wxSize Worksheet::CopyToFile(const wxString &file, Cell *start, Cell *end,
                             bool asData, int scale)
 {
-  Cell *tmp = CopySelection(start, end, asData);
+  auto tmp = CopySelection(start, end, asData);
 
   BitmapOut bmp(&m_configuration, scale);
-  bmp.SetData(tmp);
+  bmp.SetData(std::move(tmp));
 
   wxSize retval = bmp.ToFile(file);
 
@@ -4558,34 +4556,29 @@ wxSize Worksheet::CopyToFile(const wxString &file, Cell *start, Cell *end,
 /***
  * Copy selection
  */
-Cell *Worksheet::CopySelection(bool asData)
+std::unique_ptr<Cell> Worksheet::CopySelection(bool asData)
 {
   return CopySelection(m_cellPointers.m_selectionStart, m_cellPointers.m_selectionEnd, asData);
 }
 
-Cell *Worksheet::CopySelection(Cell *start, Cell *end, bool asData)
+std::unique_ptr<Cell> Worksheet::CopySelection(Cell *start, Cell *end, bool asData)
 {
-  Cell *tmp, *out = NULL, *outEnd = NULL;
-  tmp = start;
+  std::unique_ptr<Cell> out;
+  Cell *tmp = start, *outEnd = {};
 
-  while (tmp != NULL)
+  if (tmp)
   {
-    if (out == NULL)
-    {
-      out = tmp->Copy();
-      outEnd = out;
-    }
-    else
-    {
-      outEnd->AppendCell(tmp->Copy());
-      outEnd = outEnd->m_next;
-    }
+    out = tmp->Copy();
+    outEnd = out.get();
+  }
+
+  for (; tmp; tmp = asData ? tmp->GetNext() : tmp->GetNextToDraw())
+  while (tmp)
+  {
+    outEnd->AppendCell(tmp->Copy());
+    outEnd = outEnd->GetNext();
     if (tmp == end)
       break;
-    if (asData)
-      tmp = tmp->m_next;
-    else
-      tmp = tmp->GetNextToDraw();
   }
 
   return out;
@@ -5329,7 +5322,7 @@ bool Worksheet::ExportToHTML(const wxString &file)
                   (chunkEnd->GetType() != MC_TYPE_SLIDE) &&
                   (chunkEnd->GetType() != MC_TYPE_IMAGE)
                   )
-            while (chunkEnd->m_next != NULL)
+            for (; chunkEnd->GetNext(); chunkEnd = chunkEnd->GetNext())
             {
               if (
                       (chunkEnd->m_next->GetType() == MC_TYPE_SLIDE) ||
@@ -5338,11 +5331,10 @@ bool Worksheet::ExportToHTML(const wxString &file)
                       (chunkEnd->m_next->GetStyle() == TS_USERLABEL)
                       )
                 break;
-              chunkEnd = chunkEnd->m_next;
             }
 
           // Create a list containing only our chunk.
-          std::unique_ptr<Cell> chunk(CopySelection(chunkStart, chunkEnd));
+          auto chunk = CopySelection(chunkStart, chunkEnd);
 
           // Export the chunk.
 
@@ -5385,7 +5377,7 @@ bool Worksheet::ExportToHTML(const wxString &file)
               wxString alttext;
               alttext = EditorCell::EscapeHTMLChars(chunk->ListToString());
               Svgout svgout(&m_configuration, imgDir + wxT("/") + filename + wxString::Format(wxT("_%d.svg"), count));
-              wxSize size = svgout.SetData(&(*chunk));
+              wxSize size = svgout.SetData(std::move(chunk));
               wxString line = wxT("  <img src=\"") +
                 filename_encoded + wxT("_htmlimg/") + filename_encoded +
                 wxString::Format(wxT("_%d.svg\" width=\"%i\" style=\"max-width:90%%;\" loading=\"lazy\" alt=\"" ),
@@ -5450,7 +5442,7 @@ bool Worksheet::ExportToHTML(const wxString &file)
           }
           count++;
 
-          chunkStart = chunkEnd->m_next;
+          chunkStart = chunkEnd->m_next.get();
         }
       }
     }
@@ -7152,7 +7144,7 @@ void Worksheet::PasteFromClipboard()
         lines_array.Add(lines.GetNextToken());
 
       // Load the array like we would do with a .wxm file
-      GroupCell *contents = Format::TreeFromWXM(lines_array, &m_configuration);
+      auto contents = Format::TreeFromWXM(lines_array, &m_configuration);
 
       // Add the result of the last operation to the worksheet.
       if (contents)
@@ -7161,7 +7153,7 @@ void Worksheet::PasteFromClipboard()
         cells = true;
 
         // Search for the last cell we want to paste
-        GroupCell *end = contents;
+        GroupCell *end = contents.get();
         while (end->m_next)
           end = end->GetNext();
 
@@ -7169,7 +7161,7 @@ void Worksheet::PasteFromClipboard()
         if (!GetTree())
         {
           // Empty work sheet => We paste cells as the new cells
-          m_tree = contents;
+          m_tree = std::move(contents);
           m_last = end;
         }
         else
@@ -7181,10 +7173,10 @@ void Worksheet::PasteFromClipboard()
               DeleteSelection();
               TreeUndo_AppendAction();
             }
-            InsertGroupCells(contents,GetHCaret());
+            InsertGroupCells(std::move(contents), GetHCaret());
           }
           else
-            InsertGroupCells(contents, GetActiveCell()->GetGroup());
+            InsertGroupCells(std::move(contents), GetActiveCell()->GetGroup());
         }
         NumberSections();
         Recalculate();
@@ -7203,8 +7195,8 @@ void Worksheet::PasteFromClipboard()
     {
       wxBitmapDataObject bitmap;
       wxTheClipboard->GetData(bitmap);
-      ImgCell *ic = new ImgCell(group, &m_configuration, bitmap.GetBitmap());
-      group->AppendOutput(ic);
+      auto ic = make_unique<ImgCell>(group, &m_configuration, bitmap.GetBitmap());
+      group->AppendOutput(std::move(ic));
     }
   }
 
@@ -7302,7 +7294,7 @@ void Worksheet::MergeCells()
   if (tmp->GetType() != MC_TYPE_GROUP)
     return; // should not happen
 
-  for (; tmp; tmp = tmp->m_next)
+  for (; tmp; tmp = tmp->GetNext())
   {
     if (newcell.Length() > 0)
       newcell += wxT("\n");

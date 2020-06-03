@@ -278,15 +278,12 @@ void GroupCell::ResetInputLabel()
 
 void GroupCell::ResetInputLabelList()
 {
-  GroupCell *tmp = this;
-  while (tmp)
+  for (auto *tmp = this; tmp; tmp = tmp->GetNext())
   {
     tmp->ResetInputLabel();
     // also reset input labels in the folded cells
     if (tmp->IsFoldable() && (tmp->m_hiddenTree))
       tmp->m_hiddenTree->ResetInputLabelList();
-
-    tmp = tmp->GetNext();
   }
 }
 
@@ -699,8 +696,8 @@ void GroupCell::RecalculateHeightOutput()
   for (Cell *tmp = m_output.get(); tmp; tmp = tmp->GetNext())
   {
     tmp->RecalculateWidths(tmp->IsMath() ?
-                                         (*m_configuration)->GetMathFontSize() :
-                                         (*m_configuration)->GetDefaultFontSize());
+                           (*m_configuration)->GetMathFontSize() :
+                           (*m_configuration)->GetDefaultFontSize());
   }
   // Breakup cells and break lines
   BreakLines(m_output.get());
@@ -1213,17 +1210,15 @@ wxString GroupCell::ToString()
     }
   }
 
-  if (m_output != NULL && !m_isHidden)
+  if (!m_isHidden)
   {
-    Cell *tmp = m_output.get();
     bool firstCell = true;
-    while (tmp != NULL)
+    for (Cell *tmp = m_output.get(); tmp; tmp = tmp->GetNextToDraw())
     {
       if (firstCell || (tmp->HardLineBreak() && str.Length() > 0))
           str += wxT("\n");
       str += tmp->ToString();
       firstCell = false;
-      tmp = tmp->GetNextToDraw();
     }
   }
   return str;
@@ -1496,20 +1491,20 @@ wxString GroupCell::ToTeXImage(Cell *tmp, wxString imgDir, wxString filename, in
       if (i < src->Length() - 1)
         str << wxT("\\newframe");
     }
-    str << wxT("\\end{animateinline}");
-  }
-  else
-  {
-    auto *imgCell = dynamic_cast<ImgCell *>(copy.get());
-    wxString file = imgDir + wxT("/") + image + wxT(".") + imgCell->GetExtension();
-    if (imgCell->ToImageFile(file).x >= 0)
-      str += wxT("\\includegraphics[width=.95\\linewidth,height=.80\\textheight,keepaspectratio]{") +
-             filename + wxT("_img/") + image + wxT("}");
-    else
-      str << wxT("\n\\verb|<<GRAPHICS>>|\n");
   }
 
-  return str;
+  auto *imgCell = dynamic_cast<ImgCell*>(tmp);
+  if (imgCell)
+  {
+    wxString file = imgDir + wxT("/") + image + wxT(".") + imgCell->GetExtension();
+    if (imgCell->ToImageFile(file).x >= 0)
+      return wxT("\\includegraphics[width=.95\\linewidth,height=.80\\textheight,keepaspectratio]{") +
+             filename + wxT("_img/") + image + wxT("}");
+    else
+      return wxT("\n\\verb|<<GRAPHICS>>|\n");
+  }
+
+  return {};
 }
 
 wxString GroupCell::ToXML()
@@ -1718,19 +1713,16 @@ void GroupCell::SelectRectInOutput(const wxRect &rect, const wxPoint &one, const
   }
 
   // Lets select a rectangle
-  Cell *tmp = m_output.get();
   *first = *last = nullptr;
 
+  Cell *tmp = m_output.get();
   while (tmp && !rect.Intersects(tmp->GetRect()))
     tmp = tmp->GetNextToDraw();
   *first = tmp;
   *last = tmp;
-  while (tmp)
-  {
+  for (; tmp; tmp = tmp->GetNextToDraw())
     if (rect.Intersects(tmp->GetRect()))
       *last = tmp;
-    tmp = tmp->GetNextToDraw();
-  }
 
   if (!*first || !*last)
     return;
@@ -2065,12 +2057,8 @@ bool GroupCell::RevealHidden()
  */
 void GroupCell::SetHiddenTreeParent(GroupCell *parent)
 {
-  GroupCell *cell = this;
-  while (cell)
-  {
+  for (GroupCell *cell = this; cell; cell = cell->GetNext())
     cell->m_hiddenTreeParent = parent;
-    cell = cell->GetNext();
-  }
 }
 
 GroupCell *GroupCell::Fold()
@@ -2139,7 +2127,7 @@ GroupCell *GroupCell::Unfold()
     tmp = tmp->GetNext();
   // tmp holds the last element of m_hiddenTree
   tmp->m_next = std::move(end);
-  tmp->SetNextToDraw(tmp->m_next.get());
+  tmp->SetNextToDraw(tmp->GetNext());
   if (tmp->m_next)
     tmp->m_next->m_previous = tmp;
 
@@ -2167,10 +2155,10 @@ GroupCell *GroupCell::FoldAll()
 // if (all) then also calls it on it's m_next
 GroupCell *GroupCell::UnfoldAll()
 {
-  GroupCell *result = NULL;  
+  GroupCell *result = {};
   for (GroupCell *tmp = this; tmp; tmp = tmp->GetNext())
   {
-    if (tmp->IsFoldable() && (tmp->m_hiddenTree != NULL))
+    if (tmp->IsFoldable() && tmp->m_hiddenTree)
     {
       tmp->Unfold();
       result = tmp;
@@ -2215,9 +2203,7 @@ bool GroupCell::IsLesserGCType(int comparedTo) const
 
 void GroupCell::Number(int &section, int &subsection, int &subsubsection, int &heading5, int &heading6, int &image)
 {
-  GroupCell *tmp = this;
-
-  while (tmp != NULL)
+  for (GroupCell *tmp = this; tmp; tmp = tmp->GetNext())
   {
     switch (tmp->m_groupType)
     {
@@ -2288,8 +2274,6 @@ void GroupCell::Number(int &section, int &subsection, int &subsubsection, int &h
 
     if (IsFoldable() && tmp->m_hiddenTree)
       tmp->m_hiddenTree->Number(section, subsection, subsubsection, heading5, heading6, image);
-
-    tmp = tmp->GetNext();
   }
 }
 
@@ -2300,24 +2284,18 @@ bool GroupCell::IsMainInput(Cell *active) const
 
 bool GroupCell::Contains(GroupCell *cell)
 {
-  GroupCell *tmp = this;
-
-  // Iterate through all cells
-  while (tmp != NULL)
+  for (GroupCell *tmp = this; tmp; tmp = tmp->GetNext())
   {
     // If this is the cell we search for we can end the search.
     if (tmp == cell)
       return true;
 
     // If this cell contains a hidden tree we have to search that at well.
-    if ((tmp->IsFoldable()) && (tmp->GetHiddenTree()) != NULL)
+    if (tmp->IsFoldable() && tmp->GetHiddenTree())
     {
       if (tmp->GetHiddenTree()->Contains(cell))
         return true;
     }
-
-    // Step to the next cell.
-    tmp = tmp->GetNext();
   }
 
   return false;

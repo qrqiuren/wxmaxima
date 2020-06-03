@@ -667,19 +667,22 @@ void EditorCell::RecalculateWidths(int fontsize)
 wxString EditorCell::ToHTML()
 {
   wxString retval;
-
   for (EditorCell *tmp = this; tmp; tmp = dynamic_cast<EditorCell*>(tmp->GetNext()))
   {
-    for (std::vector<StyledText>::const_iterator textSnippet = m_styledText.begin();
-         textSnippet != m_styledText.end(); ++textSnippet)
+    if (!tmp)
+      break;
+
+    // TODO this needs a git investigate, the logic may be
+    // wrong? Or it may have been wrong.
+    for (auto &textSnippet : tmp->m_styledText)
     {
-      wxString text = PrependNBSP(EscapeHTMLChars(textSnippet->GetText()));
-/*      wxString tmp = EscapeHTMLChars(textSnippet->GetText());
+      wxString text = PrependNBSP(EscapeHTMLChars(textSnippet.GetText()));
+/*      wxString tmp = EscapeHTMLChars(textSnippet.GetText());
         wxString text = tmp);*/
 
-      if (textSnippet->StyleSet())
+      if (textSnippet.StyleSet())
       {
-        switch (textSnippet->GetStyle())
+        switch (textSnippet.GetStyle())
         {
         case TS_CODE_COMMENT:
           retval += wxT("<span class=\"code_comment\">") + text + wxT("</span>");
@@ -3199,26 +3202,28 @@ int EditorCell::GetLineWidth(unsigned int line, int pos)
   // the indentation needed.
   unsigned int currentLine = 1;
   int indentPixels = 0;
-  std::vector<StyledText>::const_iterator textSnippet;
-  for (textSnippet = m_styledText.begin();
-       ((textSnippet < m_styledText.end()) && (currentLine <= line)); ++textSnippet)
+
+  for (auto &textSnippet : m_styledText)
   {
-    if ((textSnippet->GetText() == '\n') || (textSnippet->GetText() == '\r'))
+    if (currentLine > line)
+      break;
+    if (textSnippet.GetText() == '\n' || textSnippet.GetText() == '\r')
     {
-      indentPixels = textSnippet->GetIndentPixels();
+      indentPixels = textSnippet.GetIndentPixels();
       currentLine++;
     }
   }
 
   if (pos == 0)
-  {
     return indentPixels;
-  }
 
   unsigned int i = 0;
 
-  for (textSnippet = m_styledText.begin(); (textSnippet < m_styledText.end()) && (i < line); ++textSnippet)
+  std::vector<StyledText>::const_iterator textSnippet;
+  for (textSnippet = m_styledText.begin(); textSnippet != m_styledText.end(); ++textSnippet)
   {
+    if (i >= line)
+      break;
     wxString text = textSnippet->GetText();
     if ((text.Right(1) == '\n') || (text.Right(1) == '\r'))
       i++;

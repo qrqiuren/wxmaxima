@@ -413,7 +413,7 @@ private:
   void AddLineToFile(wxTextFile &output, const wxString &s);
 
   //! Copy the currently selected cells
-  Cell *CopySelection(bool asData = false);
+  std::unique_ptr<Cell> CopySelection(bool asData = false);
 
   /*! Copy the currently given list of cells
 
@@ -429,7 +429,7 @@ private:
                This is accurately copied if asdata=false. But m_next and m_previous are
                treated as mere aliases of m_nextToDraw in this case.
   */
-  Cell *CopySelection(Cell *start, Cell *end, bool asData = false);
+  std::unique_ptr<Cell> CopySelection(Cell *start, Cell *end, bool asData = false);
 
   //! Get the coordinates of the bottom right point of the worksheet.
   void GetMaxPoint(int *width, int *height);
@@ -581,7 +581,7 @@ private:
   bool m_mouseDrag;
   bool m_mouseOutside;
   //! The list of tree that contains the document itself
-  GroupCell *m_tree;
+  std::unique_ptr<GroupCell> m_tree;
   GroupCell *m_last;
   int m_clickType;
   GroupCell *m_clickInGC;
@@ -896,7 +896,7 @@ public:
   void DestroyTree();
 
   //! Copies the worksheet's entire contents
-  GroupCell *CopyTree();
+  std::unique_ptr<GroupCell> CopyTree();
 
   /*! Insert group cells into the worksheet
 
@@ -909,21 +909,21 @@ public:
             - treeRedoActions for deletions while executing an undo or
             - NULL for: Don't keep any copy of the cells.
    */
-  GroupCell *InsertGroupCells(GroupCell *cells, GroupCell *where, UndoActions *undoBuffer);
+  GroupCell *InsertGroupCells(std::unique_ptr<GroupCell> &&cells, GroupCell *where, UndoActions *undoBuffer);
 
   /*! Insert group cells into the worksheet
 
     \param cells The list of cells that has to be inserted
     \param where The cell the cells have to be inserted after
   */
-  GroupCell *InsertGroupCells(GroupCell *cells, GroupCell *where = NULL);
+  GroupCell *InsertGroupCells(std::unique_ptr<GroupCell> &&cells, GroupCell *where = NULL);
 
   /*! Add a new line to the output cell of the working group.
 
     If maxima isn't currently evaluating and therefore there is no working group
     the line is appended to m_last, instead.
   */
-  void InsertLine(Cell *newCell, bool forceNewLine = false);
+  void InsertLine(std::unique_ptr<GroupCell> &&newCell, bool forceNewLine = false);
 
   // Actually recalculate the worksheet.
   bool RecalculateIfNeeded();
@@ -1127,8 +1127,7 @@ public:
    */
   wxString GetString(bool lb = false);
 
-  GroupCell *GetTree() const
-    { return m_tree; }
+  GroupCell *GetTree() const { return m_tree.get(); }
 
   /*! Return the first of the currently selected cells.
 

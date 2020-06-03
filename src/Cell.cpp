@@ -195,8 +195,7 @@ std::unique_ptr<Cell> Cell::CopyList()
 
   for (Cell *src = m_next.get(); src; src = src->GetNext())
   {
-    dest->AppendCell(src->Copy());
-    dest = dest->m_next.get();
+    dest = dest->AppendCell(src->Copy());
   }
   return ret;
 }
@@ -257,10 +256,10 @@ void Cell::FontsChangedList()
 /***
  * Append new cell to the end of this list.
  */
-void Cell::AppendCell(std::unique_ptr<Cell> &&next)
+Cell *Cell::AppendCell(std::unique_ptr<Cell> &&next)
 {
   if (!next)
-    return;
+    return {};
   m_maxDrop = -1;
   m_maxCenter = -1;
 
@@ -272,7 +271,7 @@ void Cell::AppendCell(std::unique_ptr<Cell> &&next)
   // Append `next` to the list
   last->m_next = std::move(next);
   last->m_next->m_previous = last;
-    
+
   // Search the last cell in the list that is sorted by the drawing order
   Cell *lastToDraw = last;
   while (lastToDraw->GetNextToDraw())
@@ -280,6 +279,7 @@ void Cell::AppendCell(std::unique_ptr<Cell> &&next)
 
   // Append p_next to this list.
   lastToDraw->SetNextToDraw(last->m_next);
+  return last->m_next.get();
 }
 
 GroupCell *Cell::GetGroup() const

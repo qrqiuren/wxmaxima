@@ -338,7 +338,7 @@ class Cell: public Observed
     
     \param next The cell that will be appended to the list.
    */
-  void AppendCell(std::unique_ptr<Cell> &&next);
+  Cell *AppendCell(std::unique_ptr<Cell> &&next);
 
   //! 0 for ordinary cells, 1 for slide shows and diagrams displayed with a 1-pixel border
   int m_imageBorderWidth;

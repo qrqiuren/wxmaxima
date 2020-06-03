@@ -1181,7 +1181,7 @@ TextCell *wxMaxima::ConsoleAppend(wxString s, CellType type, const wxString &use
   // that can contain it we need to create such a cell.
   if (m_worksheet->GetTree() == NULL)
     m_worksheet->InsertGroupCells(
-      new GroupCell(&(m_worksheet->m_configuration), GC_TYPE_CODE));
+      make_unique<GroupCell>(&(m_worksheet->m_configuration), GC_TYPE_CODE));
 
   m_dispReadOut = false;
   s.Replace(m_promptSuffix, wxEmptyString);
@@ -1273,25 +1273,22 @@ TextCell *wxMaxima::ConsoleAppend(wxString s, CellType type, const wxString &use
 void wxMaxima::DoConsoleAppend(wxString s, CellType type, bool newLine,
                                bool bigSkip, const wxString &userLabel)
 {
-  Cell *cell;
-
   if (s.IsEmpty())
     return;
 
   s.Replace(wxT("\n"), wxT(" "), true);
 
   m_parser.SetUserLabel(userLabel);
-  cell = m_parser.ParseLine(s, type);
+  std::unique_ptr<Cell> cell(m_parser.ParseLine(s, type));
 
-  wxASSERT_MSG(cell != NULL, _("There was an error in generated XML!\n\n"
-                               "Please report this as a bug."));
-  if (cell == NULL)
-  {
+  wxASSERT_MSG(cell, _("There was an error in generated XML!\n\n"
+                       "Please report this as a bug."));
+  if (!cell)
     return;
-  }
 
   cell->SetSkip(bigSkip);
-  m_worksheet->InsertLine(cell, newLine || cell->BreakLineHere());
+  newLine = newLine || cell->BreakLineHere(); // Note: after the move, cell is null!
+  m_worksheet->InsertLine(std::move(cell), newLine);
 }
 
 TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
@@ -1299,9 +1296,9 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
   TextCell *cell = NULL;
   // If we want to append an error message to the worksheet and there is no cell
   // that can contain it we need to create such a cell.
-  if (m_worksheet->GetTree() == NULL)
+  if (!m_worksheet->GetTree())
     m_worksheet->InsertGroupCells(
-      new GroupCell(&(m_worksheet->m_configuration), GC_TYPE_CODE));
+      make_unique<GroupCell>(&(m_worksheet->m_configuration), GC_TYPE_CODE));
 
   if (s.IsEmpty())
     return NULL;
@@ -1310,11 +1307,11 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
 
   if (type == MC_TYPE_MAIN_PROMPT)
   {
-    cell = new TextCell(m_worksheet->GetTree(), &(m_worksheet->m_configuration), s);
-    cell->SetType(type);
-    m_worksheet->InsertLine(cell, true);
+    auto newCell = make_unique<TextCell>(m_worksheet->GetTree(), &(m_worksheet->m_configuration), s);
+    cell = newCell.get();
+    newCell->SetType(type);
+    m_worksheet->InsertLine(std::move(newCell), true);
   }
-
   else
   {
     TextCell *incompleteTextCell = m_worksheet->GetCurrentTextCell();
@@ -1345,8 +1342,8 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
 
     wxStringTokenizer tokens(s, wxT("\n"));
     int count = 0;
-    Cell *tmp = NULL, *lst = NULL;
-    while (tokens.HasMoreTokens())
+    std::unique_ptr<Cell> head;
+    for (Cell *lst = {}; tokens.HasMoreTokens(); ++count}
     {
       wxString token = tokens.GetNextToken();
       // Move endles streams of compilation messages to the status bar...
@@ -1358,26 +1355,25 @@ TextCell *wxMaxima::DoRawConsoleAppend(wxString s, CellType type)
       }
       else
       {
-        cell = new TextCell(m_worksheet->GetTree(), &(m_worksheet->m_configuration),
-                            token);
-
+        auto newCell = make_unique<TextCell>(m_worksheet->GetTree(), &(m_worksheet->m_configuration),
+                                             token);
+        cell = newCell.get();
         cell->SetType(type);
 
         if (tokens.HasMoreTokens())
           cell->SetSkip(false);
 
-        if (lst == NULL)
-          tmp = lst = cell;
+        if (!head)
+          head = std::move(newCell);
         else
         {
-          lst->AppendCell(cell);
+          lst->AppendCell(std::move(newCell));
           cell->ForceBreakLine(true);
-          lst = cell;
         }
+        lst = cell;
       }
-      count++;
     }
-    m_worksheet->InsertLine(tmp, true);
+    m_worksheet->InsertLine(std::move(head), true);
   }
 
   if(cell)
@@ -2946,9 +2942,11 @@ bool wxMaxima::OpenMACFile(const wxString &file, Worksheet *document, bool clear
   if (clearDocument)
     document->ClearDocument();
 
-  auto tree = Format::ParseMACFile(inputFile, xMaximaFile, &document->m_configuration);
+  {
+    auto tree = Format::ParseMACFile(inputFile, xMaximaFile, &document->m_configuration);
 
-  document->InsertGroupCells(tree, nullptr);
+    document->InsertGroupCells(std::move(tree), nullptr);
+  }
 
   if (clearDocument)
   {
@@ -3005,18 +3003,19 @@ bool wxMaxima::OpenWXMFile(const wxString &file, Worksheet *document, bool clear
     return false;
   }
 
-  GroupCell *tree = Format::ParseWXMFile(inputFile,
-                                         &m_worksheet->m_configuration);
-  inputFile.Close();
-
-  // from here on code is identical for wxm and wxmx
-  if (clearDocument)
   {
-    document->ClearDocument();
-    StartMaxima();
-  }
+    auto tree = Format::ParseWXMFile(inputFile, &m_worksheet->m_configuration);
+    inputFile.Close();
 
-  document->InsertGroupCells(tree); // this also requests a recalculate
+    // from here on code is identical for wxm and wxmx
+    if (clearDocument)
+    {
+      document->ClearDocument();
+      StartMaxima();
+    }
+
+    document->InsertGroupCells(std::move(tree)); // this also requests a recalculate
+  }
 
   if (clearDocument)
   {
@@ -3208,21 +3207,23 @@ bool wxMaxima::OpenWXMXFile(const wxString &file, Worksheet *document, bool clea
   wxString doczoom = xmldoc.GetRoot()->GetAttribute(wxT("zoom"), wxT("100"));
 
   // Read the worksheet's contents.
-  wxXmlNode *xmlcells = xmldoc.GetRoot();
-  GroupCell *tree = CreateTreeFromXMLNode(xmlcells, wxmxURI);
-
-  // from here on code is identical for wxm and wxmx
-  if (clearDocument)
   {
-    document->ClearDocument();
-    StartMaxima();
-    long int zoom = 100;
-    if (!(doczoom.ToLong(&zoom)))
-      zoom = 100;
-    document->SetZoomFactor(double(zoom) / 100.0, false); // Set zoom if opening, don't recalculate
-  }
+    wxXmlNode *xmlcells = xmldoc.GetRoot();
+    auto tree = CreateTreeFromXMLNode(xmlcells, wxmxURI);
 
-  document->InsertGroupCells(tree); // this also requests a recalculate
+    // from here on code is identical for wxm and wxmx
+    if (clearDocument)
+    {
+      document->ClearDocument();
+      StartMaxima();
+      long int zoom = 100;
+      if (!(doczoom.ToLong(&zoom)))
+        zoom = 100;
+      document->SetZoomFactor(double(zoom) / 100.0, false); // Set zoom if opening, don't recalculate
+    }
+
+    document->InsertGroupCells(std::move(tree)); // this also requests a recalculate
+  }
   if (clearDocument)
   {
     m_worksheet->m_currentFile = file;
@@ -3323,12 +3324,14 @@ bool wxMaxima::OpenXML(const wxString &file, Worksheet *document)
   }
 
   // Read the worksheet's contents.
-  wxXmlNode *xmlcells = xmldoc.GetRoot();
-  GroupCell *tree = CreateTreeFromXMLNode(xmlcells, file);
+  {
+    wxXmlNode *xmlcells = xmldoc.GetRoot();
+    auto tree = CreateTreeFromXMLNode(xmlcells, file);
 
-  document->ClearDocument();
-  StartMaxima();
-  document->InsertGroupCells(tree); // this also requests a recalculate
+    document->ClearDocument();
+    StartMaxima();
+    document->InsertGroupCells(std::move(tree)); // this also requests a recalculate
+  }
   m_worksheet->m_currentFile = file;
   ResetTitle(true, true);
   document->RequestRedraw();
@@ -3340,41 +3343,41 @@ bool wxMaxima::OpenXML(const wxString &file, Worksheet *document)
   return true;
 }
 
-GroupCell *wxMaxima::CreateTreeFromXMLNode(wxXmlNode *xmlcells, const wxString &wxmxfilename)
+std::unique_ptr<GroupCell> wxMaxima::CreateTreeFromXMLNode(wxXmlNode *xmlcells, const wxString &wxmxfilename)
 {
   // Show a busy cursor as long as we export a .gif file (which might be a lengthy
   // action).
   wxBusyCursor crs;
 
   MathParser mp(&m_worksheet->m_configuration, wxmxfilename);
-  GroupCell *tree = NULL;
-  GroupCell *last = NULL;
+  std::unique_ptr<GroupCell> tree;
+  GroupCell *last = {};
 
   bool warning = true;
 
   if (xmlcells)
     xmlcells = xmlcells->GetChildren();
 
-  while (xmlcells != NULL)
+  while (xmlcells)
   {
     if (xmlcells->GetType() != wxXML_TEXT_NODE)
     {
-      Cell *mc;
-      mc = mp.ParseTag(xmlcells, false);
-      if (mc != NULL)
+      std::unique_ptr<Cell> mc(mp.ParseTag(xmlcells, false));
+      if (mc)
       {
-        GroupCell *cell = dynamic_cast<GroupCell *>(mc);
+        wxASSERT(dynamic_cast<GroupCell *>(mc.get()));
+        auto cell = static_unique_ptr_cast<GroupCell>(std::move(mc));
 
-        if (last == NULL)
+        if (!tree)
         {
           // first cell
-          last = tree = cell;
+          last = (tree = std::move(cell)).get();
         }
         else
         {
           // The rest of the cells
-          last->m_next = cell;
-          last->SetNextToDraw(cell);
+          last->m_next = std::move(cell);
+          last->SetNextToDraw(last->m_next);
           last->m_next->m_previous = last;
 
           last = last->GetNext();
@@ -4441,8 +4444,10 @@ void wxMaxima::PrintMenu(wxCommandEvent &event)
         wxWindowUpdateLocker noUpdates(m_worksheet);
         wxEventBlocker blocker(m_worksheet);
         Printout printout(title, &m_worksheet->m_configuration, GetContentScaleFactor());
-        GroupCell *copy = m_worksheet->CopyTree();
-        printout.SetData(copy);
+        {
+          auto copy = m_worksheet->CopyTree();
+          printout.SetData(std::move(copy));
+        }
         wxBusyCursor crs;
         if (printer.Print(this, &printout, true))
         {
@@ -9224,11 +9229,13 @@ void wxMaxima::TriggerEvaluation()
       tmp->GetEditable()->SetErrorIndex(m_commandIndex - 1);
       // Inform the user about the error (which automatically causes the worksheet
       // to the cell we marked as erroneous a few seconds ago.
-      TextCell *cell = new TextCell(tmp, &(m_worksheet->m_configuration),
-                                    _("Refusing to send cell to maxima: ") +
-                                    parenthesisError + wxT("\n"));
-      cell->SetType(MC_TYPE_ERROR);
-      tmp->SetOutput(cell);
+      {
+        auto cell = make_unique<TextCell>(tmp, &(m_worksheet->m_configuration),
+                                          _("Refusing to send cell to maxima: ") +
+                                          parenthesisError + wxT("\n"));
+        cell->SetType(MC_TYPE_ERROR);
+        tmp->SetOutput(std::move(cell));
+      }
       m_worksheet->m_evaluationQueue.Clear();
       m_worksheet->SetWorkingGroup(nullptr);
       tmp->GetInput()->SetCaretPosition(index);
@@ -9451,8 +9458,8 @@ void wxMaxima::InsertMenu(wxCommandEvent &event)
     case menu_add_pagebreak:
     case menu_format_pagebreak:
       m_worksheet->InsertGroupCells(
-              new GroupCell(&(m_worksheet->m_configuration), GC_TYPE_PAGEBREAK),
-              m_worksheet->GetHCaret());
+        make_unique<GroupCell>(&(m_worksheet->m_configuration), GC_TYPE_PAGEBREAK),
+                               m_worksheet->GetHCaret());
       m_worksheet->Recalculate();
       m_worksheet->SetFocus();
       return;
