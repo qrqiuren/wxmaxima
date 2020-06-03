@@ -5873,7 +5873,7 @@ void wxMaxima::EditMenu(wxCommandEvent &event)
           cell->SetSuppressTooltipMarker(marked);
           if(cell == end)
             break;
-          cell = dynamic_cast<GroupCell *>(cell->m_next);
+          cell = dynamic_cast<GroupCell *>(cell->m_next.get());
         }
       m_worksheet->OutputChanged();
       break;

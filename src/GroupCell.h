@@ -98,7 +98,7 @@ public:
   { if (!answer.empty()) m_knownAnswers[question] = answer; }
 
   InnerCellIterator InnerBegin() const override
-  { return (m_groupType == GC_TYPE_PAGEBREAK) ? InnerCellIterator{} : InnerCellIterator{&m_inputLabel, &m_output+1}; }
+    ;//{ return (m_groupType == GC_TYPE_PAGEBREAK) ? InnerCellIterator{} : InnerCellIterator{&m_inputLabel, &m_output+1}; }
 
   /*! Which GroupCell was the last maxima was working on?
 
@@ -193,8 +193,10 @@ public:
   //! Get the next GroupCell in the list.
   GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next.get()); }
 
+#if 0
   unique_cell_ptr<GroupCell> TakeNextGroup()
-  { return static_unique_cast<GroupCell>(std::move(m_next)); }
+  { return static_unique_ptr_cast<GroupCell>(std::move(m_next)); }
+#endif
 
   static wxString TexEscapeOutputCell(const wxString &input);
 

@@ -111,6 +111,8 @@ private:
   static void ParseCommonAttrs(wxXmlNode *node, const OwningPtr<T> &cell);
   //! Parses attributes that apply to nearly all types of cells
   static void ParseCommonAttrs(wxXmlNode *node, Cell *cell);
+
+  static void ParseCommonGroupCellAttrs(wxXmlNode *node, const OwningGroupPtr &group);
   //! Parses attributes that apply to nearly all types of cells
   static void ParseCommonGroupCellAttrs(wxXmlNode *node, GroupCell *group);
   //! Returns cell or, if cell==NULL, an empty text cell as a fallback.
@@ -152,8 +154,7 @@ private:
   //! Convert a code cell XML tag to a GroupCell
   OwningGroupPtr GroupCellFromCodeTag(wxXmlNode *node);
   //! Convert a image XML tag to a GroupCell
-  OwningGroupPtr GroupCellFromImageTag(wxXmlNode *node)
-  { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_IMAGE); }
+  OwningGroupPtr GroupCellFromImageTag(wxXmlNode *node);
   //! Convert a title XML tag to a GroupCell
   OwningGroupPtr GroupCellFromTitleTag(wxXmlNode *WXUNUSED(node))
   { return MakeOwned<GroupCell>(m_configuration, GC_TYPE_TITLE); }

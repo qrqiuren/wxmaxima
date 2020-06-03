@@ -304,6 +304,8 @@ class Cell: public Observed
   wxAccStatus GetValue (int childId, wxString *strValue) override;
   wxAccStatus GetRole (int childId, wxAccRole *role) override;
 #endif
+
+  Configuration **m_configuration;
   
   wxString m_toolTip;
 

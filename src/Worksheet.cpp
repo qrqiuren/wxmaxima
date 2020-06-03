@@ -3012,7 +3012,7 @@ void Worksheet::OpenHCaret(const wxString &txt, GroupType type)
   if (GetWorkingGroup() && m_questionPrompt)
   {
     if ((GetActiveCell() && GetActiveCell()->GetGroup() == GetWorkingGroup()) ||
-        (m_hCaretPosition && m_hCaretPosition == GetWorkingGroup()->m_next))
+        (m_hCaretPosition && m_hCaretPosition == GetWorkingGroup()->m_next.get()))
     {
       OpenQuestionCaret(txt);
       return;
@@ -3574,7 +3574,7 @@ void Worksheet::SelectWithChar(int ccode)
 
       if (prev)
       {
-        if (m_hCaretPosition && m_hCaretPosition->m_next == m_hCaretPositionEnd)
+        if (m_hCaretPosition && m_hCaretPosition->m_next.get() == m_hCaretPositionEnd)
           m_hCaretPositionStart = prev;
         if (m_hCaretPositionEnd)
           m_hCaretPositionEnd = prev;
