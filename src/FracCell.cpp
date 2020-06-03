@@ -37,8 +37,8 @@ FracCell::FracCell(GroupCell *parent, Configuration **config) :
     m_denomParenthesis(new ParenCell(m_group, m_configuration)),
     m_divideOwner(new TextCell(parent, config, "/"))
 {
-  SetNum(new TextCell(parent, config));
-  SetDenom(new TextCell(parent, config));
+  SetNum(make_unique<TextCell>(parent, config));
+  SetDenom(make_unique<TextCell>(parent, config));
   m_divide->SetStyle(TS_VARIABLE);
   m_fracStyle = FC_NORMAL;
   m_exponent = false;
@@ -60,20 +60,20 @@ FracCell::FracCell(const FracCell &cell):
   SetupBreakUps();
 }
 
-void FracCell::SetNum(Cell *num)
+void FracCell::SetNum(std::unique_ptr<Cell> &&num)
 {
   if (!num)
     return;
-  m_numParenthesis->SetInner(num);
   m_num_Last = num;
+  m_numParenthesis->SetInner(std::move(num));
   SetupBreakUps();
 }
 
-void FracCell::SetDenom(Cell *denom)
+void FracCell::SetDenom(std::unique_ptr<Cell> &&denom)
 {
   if (!denom)
     return;
-  m_denomParenthesis->SetInner(denom);
+  m_denomParenthesis->SetInner(std::move(denom));
   SetupBreakUps();
 }
 
@@ -236,20 +236,18 @@ wxString FracCell::ToString()
     }
     else
     {
-      Cell *tmp = Denom();
-      while (tmp != NULL)
+      for (Cell *tmp = Denom(); tmp; tmp = tmp->GetNext())
       {
-        tmp = tmp->m_next;   // Skip the d
-        if (tmp == NULL)
+        tmp = tmp->GetNext();   // Skip the d
+        if (!tmp)
           break;
-        tmp = tmp->m_next;   // Skip the *
-        if (tmp == NULL)
+        tmp = tmp->GetNext();   // Skip the *
+        if (!tmp)
           break;
         s += tmp->GetDiffPart();
-        tmp = tmp->m_next;   // Skip the *
-        if (tmp == NULL)
+        tmp = tmp->GetNext();   // Skip the *
+        if (!tmp)
           break;
-        tmp = tmp->m_next;
       }
     }
   }
@@ -279,16 +277,16 @@ wxString FracCell::ToMatlab()
 	}
 	else
     {
-      for (Cell *tmp = Denom(); tmp; tmp = tmp->m_next)
+      for (Cell *tmp = Denom(); tmp; tmp = tmp->GetNext())
 	  {
-		tmp = tmp->m_next;   // Skip the d
+        tmp = tmp->GetNext();   // Skip the d
         if (!tmp)
 		  break;
-		tmp = tmp->m_next;   // Skip the *
+        tmp = tmp->GetNext();   // Skip the *
         if (!tmp)
 		  break;
 		s += tmp->GetDiffPart();
-		tmp = tmp->m_next;   // Skip the *
+        tmp = tmp->GetNext();   // Skip the *
         if (!tmp)
 		  break;
 	  }

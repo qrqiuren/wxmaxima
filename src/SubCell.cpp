@@ -45,18 +45,16 @@ SubCell::SubCell(const SubCell &cell):
     SetIndex(cell.m_indexCell->CopyList());
 }
 
-void SubCell::SetIndex(Cell *index)
+void SubCell::SetIndex(std::unique_ptr<Cell> &&index)
 {
-  if (!index)
-    return;
-  m_indexCell.reset(index);
+  if (index)
+    m_indexCell = std::move(index);
 }
 
-void SubCell::SetBase(Cell *base)
+void SubCell::SetBase(std::unique_ptr<Cell> &&base)
 {
-  if (!base)
-    return;
-  m_baseCell.reset(base);
+  if (base)
+    m_baseCell = std::move(base);
 }
 
 void SubCell::RecalculateWidths(int fontsize)

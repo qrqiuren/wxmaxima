@@ -48,18 +48,18 @@ Printout::Printout(wxString title, Configuration **configuration, double scaleFa
 
 Printout::~Printout()
 {
-  DestroyTree();
-  if(m_printConfigCreated)
+  m_tree.reset();
+  if (m_printConfigCreated)
     wxDELETE(*m_configuration);
   *m_configuration = m_oldconfig;
   (*m_configuration)->FontChanged(true);
   (*m_configuration)->RecalculationForce(true);  
 }
 
-void Printout::SetData(GroupCell *tree)
+void Printout::SetData(std::unique_ptr<GroupCell> &&tree)
 {
-  m_tree = std::unique_ptr<GroupCell>(tree);
-  if (m_tree != NULL)
+  m_tree = std::move(tree);
+  if (m_tree)
     m_tree->BreakPage(true);
 }
 
@@ -324,9 +324,4 @@ void Printout::Recalculate()
     tmp->Recalculate();
     tmp = tmp->GetNext();
   }
-}
-
-void Printout::DestroyTree()
-{
-  m_tree = NULL;
 }

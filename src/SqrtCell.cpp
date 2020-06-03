@@ -62,11 +62,11 @@ SqrtCell::SqrtCell(const SqrtCell &cell):
   m_isBrokenIntoLines = cell.m_isBrokenIntoLines;
 }
 
-void SqrtCell::SetInner(Cell *inner)
+void SqrtCell::SetInner(std::unique_ptr<Cell> &&inner)
 {
   if (!inner)
     return;
-  m_innerCell.reset(inner);
+  m_innerCell = std::move(inner);
 
   m_last = inner;
   if (m_last)

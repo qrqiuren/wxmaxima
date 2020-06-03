@@ -39,11 +39,8 @@ public:
 
   ImgCell(GroupCell *parent, Configuration **config, const wxBitmap &bitmap);
   ImgCell(const ImgCell &cell);
-  Cell *Copy() override { return new ImgCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<ImgCell>(*this); }
   ~ImgCell() override;
-
-  //! This class can be derived from wxAccessible which has no copy constructor
-  ImgCell &operator=(const ImgCell&) = delete;
 
   //! Tell the image which gnuplot files it was made from
   void GnuplotSource(wxString sourcefile, wxString datafile, std::shared_ptr<wxFileSystem> filesystem)

@@ -30,14 +30,13 @@ class DiffCell final : public Cell
 public:
   DiffCell(GroupCell *parent, Configuration **config);
   DiffCell(const DiffCell &cell);
-  Cell *Copy() override { return new DiffCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<DiffCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_diffCell); }
 
-  void SetBase(Cell *base);
-
-  void SetDiff(Cell *diff);
+  void SetBase(std::unique_ptr<Cell> &&base);
+  void SetDiff(std::unique_ptr<Cell> &&diff);
 
   void RecalculateHeight(int fontsize) override;
 

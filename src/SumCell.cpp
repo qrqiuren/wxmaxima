@@ -62,27 +62,26 @@ SumCell::SumCell(const SumCell &cell) :
   m_sumStyle = cell.m_sumStyle;
 }
 
-void SumCell::SetOver(Cell *over)
+void SumCell::SetOver(std::unique_ptr<Cell> &&over)
 {
-  if (!over)
-    return;
-  m_over.reset(over);
+  if (over)
+    m_over = std::move(over);
 }
 
-void SumCell::SetBase(Cell *base)
+void SumCell::SetBase(std::unique_ptr<Cell> &&base)
 {
   if (!base)
     return;
-  Paren()->SetInner(base);
-  wxASSERT(Base() == base);
+  auto *basePtr = base.get();
+  Paren()->SetInner(std::move(base));
+  wxASSERT(Base() == basePtr);
   m_displayedBase = m_paren;
 }
 
-void SumCell::SetUnder(Cell *under)
+void SumCell::SetUnder(std::unique_ptr<Cell> &&under)
 {
-  if (!under)
-    return;
-  m_under.reset(under);
+  if (under)
+    m_under = std::move(under);
 }
 
 void SumCell::RecalculateWidths(int fontsize)
@@ -99,7 +98,7 @@ void SumCell::RecalculateWidths(int fontsize)
   m_signWCenter = m_signWidth / 2.0;
   m_under->RecalculateWidthsList(wxMax(MC_MIN_SIZE, fontsize - SUM_DEC));
   if (!m_over)
-    m_over.reset(new TextCell(m_group, m_configuration));
+    m_over = make_unique<TextCell>(m_group, m_configuration);
   m_over->RecalculateWidthsList(wxMax(MC_MIN_SIZE, fontsize - SUM_DEC));
 
   if (false)
@@ -274,13 +273,10 @@ wxString SumCell::ToString()
   Cell *tmp = m_under.get();
   wxString var = tmp->ToString();
   wxString from;
-  tmp = tmp->m_next;
-  if (tmp != NULL)
-  {
-    tmp = tmp->m_next;
-    if (tmp != NULL)
-      from = tmp->ListToString();
-  }
+  tmp = tmp->GetNext();
+  if (tmp && (tmp = tmp->GetNext()))
+    from = tmp->ListToString();
+
   wxString to = m_over->ListToString();
   s += wxT(",") + var + wxT(",") + from;
   if (to != wxEmptyString)
@@ -302,13 +298,10 @@ wxString SumCell::ToMatlab()
   Cell *tmp = m_under.get();
   wxString var = tmp->ToMatlab();
   wxString from;
-  tmp = tmp->m_next;
-  if (tmp != NULL)
-  {
-	tmp = tmp->m_next;
-	if (tmp != NULL)
-	  from = tmp->ListToMatlab();
-  }
+  tmp = tmp->GetNext();
+  if (tmp && (tmp = tmp->GetNext()))
+    from = tmp->ListToMatlab();
+
   wxString to = m_over->ListToMatlab();
   s += wxT(",") + var + wxT(",") + from;
   if (to != wxEmptyString)

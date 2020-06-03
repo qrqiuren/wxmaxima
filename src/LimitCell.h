@@ -37,7 +37,7 @@ class LimitCell final : public Cell
 public:
   LimitCell(GroupCell *parent, Configuration **config);
   LimitCell(const LimitCell &cell);
-  Cell *Copy() override { return new LimitCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<LimitCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_base); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
@@ -48,11 +48,9 @@ public:
 
   void Draw(wxPoint point) override;
 
-  void SetBase(Cell *base);
-
-  void SetUnder(Cell *under);
-
-  void SetName(Cell *name);
+  void SetBase(std::unique_ptr<Cell> &&base);
+  void SetUnder(std::unique_ptr<Cell> &&under);
+  void SetName(std::unique_ptr<Cell> &&name);
 
   wxString ToString() override;
 

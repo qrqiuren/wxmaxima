@@ -73,32 +73,28 @@ IntCell::IntCell(const IntCell &cell):
   m_intStyle = cell.m_intStyle;
 }
 
-void IntCell::SetOver(Cell *name)
+void IntCell::SetOver(std::unique_ptr<Cell> &&name)
 {
-  if (!name)
-    return;
-  m_over.reset(name);
+  if (name)
+    m_over = std::move(name);
 }
 
-void IntCell::SetBase(Cell *base)
+void IntCell::SetBase(std::unique_ptr<Cell> &&base)
 {
-  if (!base)
-    return;
-  m_base.reset(base);
+  if (base)
+    m_base = std::move(base);
 }
 
-void IntCell::SetUnder(Cell *under)
+void IntCell::SetUnder(std::unique_ptr<Cell> &&under)
 {
-  if (!under)
-    return;
-  m_under.reset(under);
+  if (under)
+    m_under = std::move(under);
 }
 
-void IntCell::SetVar(Cell *var)
+void IntCell::SetVar(std::unique_ptr<Cell> &&var)
 {
   if (var)
-    return;
-  m_var.reset(var);
+    m_var = std::move(var);
 }
 
 void IntCell::RecalculateWidths(int fontsize)
@@ -392,13 +388,10 @@ wxString IntCell::ToString()
 
   s += m_base->ListToString();
 
-  Cell *tmp = m_var.get();
+  Cell *tmp = m_var->GetNext();
   wxString var;
-  tmp = tmp->m_next;
-  if (tmp != NULL)
-  {
+  if (tmp)
     var = tmp->ListToString();
-  }
 
   wxString to = m_over->ListToString();
   wxString from = m_under->ListToString();
@@ -417,13 +410,10 @@ wxString IntCell::ToMatlab()
 
   s += m_base->ListToMatlab();
 
-  Cell *tmp = m_var.get();
+  Cell *tmp = m_var->GetNext();
   wxString var;
-  tmp = tmp->m_next;
-  if (tmp != NULL)
-  {
+  if (tmp)
 	var = tmp->ListToMatlab();
-  }
 
   wxString to = m_over->ListToMatlab();
   wxString from = m_under->ListToMatlab();

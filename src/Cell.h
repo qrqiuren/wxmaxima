@@ -272,7 +272,7 @@ class Cell: public Observed
     This method is purely virtual, which means every child class has to define
     its own Copy() method.
    */
-  virtual Cell *Copy() = 0;
+  virtual std::unique_ptr<Cell> Copy() = 0;
 
   /*! Scale font sizes and line widths according to the zoom factor.
 
@@ -336,9 +336,9 @@ class Cell: public Observed
 
   /*! Add a cell to the end of the list this cell is part of
     
-    \param p_next The cell that will be appended to the list.
+    \param next The cell that will be appended to the list.
    */
-  void AppendCell(Cell *p_next);
+  void AppendCell(std::unique_ptr<Cell> &&next);
 
   //! 0 for ordinary cells, 1 for slide shows and diagrams displayed with a 1-pixel border
   int m_imageBorderWidth;
@@ -663,12 +663,11 @@ class Cell: public Observed
   virtual void SelectInner(const wxRect &rect, CellPtr<Cell> *first, CellPtr<Cell> *last);
 
   //! Is this cell an operator?
-  virtual bool IsOperator() const;
+  virtual bool IsOperator() const { return false; }
 
-  bool IsCompound();
+  bool IsCompound() const;
 
-  virtual bool IsShortNum()
-  { return false; }
+  virtual bool IsShortNum() const { return false; }
 
   //! Returns the group cell this cell belongs to
   GroupCell *GetGroup() const;
@@ -708,7 +707,7 @@ class Cell: public Observed
   virtual wxString ListToRTF(bool startofline = false);
 
   //! Returns the cell's representation as a string.
-  virtual wxString ToString();
+  virtual wxString ToString() { return {}; }
 
   /*! Returns the cell's representation as RTF.
 
@@ -733,20 +732,19 @@ class Cell: public Observed
     Don't know why OMML was implemented in a world that already knows MathML,
     though.
    */
-  virtual wxString ToOMML()
-  { return wxEmptyString; }
+  virtual wxString ToOMML() { return {}; }
 
   //! Convert this cell to its Matlab representation
-  virtual wxString ToMatlab();
+  virtual wxString ToMatlab() { return {}; }
 
   //! Convert this cell to its LaTeX representation
-  virtual wxString ToTeX();
+  virtual wxString ToTeX() { return {}; }
 
   //! Convert this cell to a representation fit for saving in a .wxmx file
-  virtual wxString ToXML();
+  virtual wxString ToXML() { return {}; }
 
   //! Convert this cell to a representation fit for saving in a .wxmx file
-  virtual wxString ToMathML();
+  virtual wxString ToMathML() { return {}; }
 
   //! Escape a string for RTF
   static wxString RTFescape(wxString, bool MarkDown = false);
@@ -781,10 +779,10 @@ class Cell: public Observed
     Reads NULL, if this is the last cell of the list. See also m_nextToDraw and 
     m_previous.
    */
-  Cell *m_next;
+  std::unique_ptr<Cell> m_next;
 
   //! Get the next cell in the list.
-  virtual Cell *GetNext() const {return m_next;}
+  virtual Cell *GetNext() const { return m_next.get(); }
   /*! Get the next cell that needs to be drawn
 
     In case of potential 2d objects like fractions either the fraction needs to be
@@ -883,44 +881,38 @@ class Cell: public Observed
   virtual bool AddEnding()
   { return false; }
 
-  virtual void SelectPointText(const wxPoint &point);
-      
-  virtual void SelectRectText(const wxPoint &one, const wxPoint &two);
+  virtual void SelectPointText(const wxPoint &point) { wxUnusedVar(point); }
+
+  virtual void SelectRectText(const wxPoint &one, const wxPoint &two) { wxUnusedVar(one); wxUnusedVar(two); }
   
-  virtual void PasteFromClipboard(const bool &primary = false);
+  virtual void PasteFromClipboard(const bool &primary = false) { wxUnusedVar(primary); }
   
-  virtual bool CopyToClipboard()
-  { return false; }
+  virtual bool CopyToClipboard() { return false; }
 
-  virtual bool CutToClipboard()
-  { return false; }
+  virtual bool CutToClipboard() { return false; }
 
-  virtual void SelectAll()
-  {}
+  virtual void SelectAll() {}
 
-  virtual bool CanCopy() const
-  { return false; }
+  virtual bool CanCopy() const { return false; }
 
-  virtual void SetMatchParens(bool WXUNUSED(match))
-  {}
+  virtual void SetMatchParens(bool match) { wxUnusedVar(match); }
 
-  virtual wxPoint PositionToPoint(int WXUNUSED(fontsize), int WXUNUSED(pos) = -1)
-  { return wxPoint(-1, -1); }
+  virtual wxPoint PositionToPoint(int fontsize, int pos = -1)
+  {
+    wxUnusedVar(fontsize); wxUnusedVar(pos);
+    return wxPoint(-1, -1);
+  }
 
-  virtual bool IsDirty() const
-  { return false; }
+  virtual bool IsDirty() const { return false; }
 
-  virtual void SwitchCaretDisplay()
-  {}
+  virtual void SwitchCaretDisplay() {}
 
-  virtual void SetFocus(bool WXUNUSED(focus))
-  {}
+  virtual void SetFocus(bool focus) { wxUnusedVar(focus); }
 
   //! Sets the foreground color
   void SetForeground();
 
-  virtual bool IsActive() const
-  { return false; }
+  virtual bool IsActive() const { return false; }
 
   /*! Define which Cell is the GroupCell this list of cells belongs to
 
@@ -949,7 +941,7 @@ class Cell: public Observed
     
     Used by Cell::Copy() when the parameter <code>all</code> is true.
   */
-  Cell *CopyList();
+  std::unique_ptr<Cell> CopyList();
 
   /*! Do we want to begin this cell with a center dot if it is part of a product?
 

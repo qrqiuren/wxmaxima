@@ -69,7 +69,7 @@ class GroupCell final : public Cell
 public:
   GroupCell(Configuration **config, GroupType groupType, const wxString &initString = {});
   GroupCell(const GroupCell &cell);
-  Cell *Copy() override { return new GroupCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<GroupCell>(*this); }
   ~GroupCell();
 
   wxString GetAnswer(int answer)
@@ -156,7 +156,6 @@ public:
   bool SetEditableContent(wxString text);
 
   EditorCell *GetEditable() const; // returns pointer to editor (if there is one)
-  void AppendOutput(Cell *cell);
 
   /*! Remove all output cells attached to this one
 
@@ -191,42 +190,36 @@ public:
   wxRect HideRect();
 
   // raw manipulation of GC (should be protected)
-  void SetInput(Cell *input);
-
-  void SetOutput(Cell *output);
-
-  void AppendInput(Cell *cell);
+  void SetInput(std::unique_ptr<Cell> &&input);
+  void SetOutput(std::unique_ptr<Cell> &&output);
+  void AppendInput(std::unique_ptr<Cell> &&cell);
+  void AppendOutput(std::unique_ptr<Cell> &&cell);
 
   //! Get the previous GroupCell in the list
   GroupCell *GetPrevious() const { return m_previous.CastAs<GroupCell*>(); }
 
   //! Get the next GroupCell in the list.
-  GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next); }
+  GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next.get()); }
 
   static wxString TexEscapeOutputCell(wxString Input);
 
   Cell *GetPrompt() { return m_inputLabel.get(); }
 
   EditorCell *GetInput() const
-    {
-      if (m_inputLabel != NULL)
-        return dynamic_cast<EditorCell *>(m_inputLabel.get()->m_next);
-      else
-        return NULL;
-    }
+  { return m_inputLabel ? dynamic_cast<EditorCell *>(m_inputLabel->m_next.get()) : nullptr; }
 
   /*! Returns the list of cells the output consists of, starting with the label.
 
     See also GetOutput();
   */
-  Cell *GetLabel() { return m_output.get(); }
+  Cell *GetLabel() const { return m_output.get(); }
 
   /*! Returns the list of cells the output consists of, starting after the label.
 
     See also GetLabel()
   */
   Cell *GetOutput() const
-  { if (m_output == NULL) return NULL; else return m_output->m_next; }
+  { return m_output ? m_output->m_next.get() : nullptr ; }
 
   //! Determine which rectangle is occupied by this GroupCell
   wxRect GetOutputRect() const { return m_outputRect; }
@@ -305,10 +298,10 @@ public:
     - false, if the cell already was folded when this function was called
     - true, if the cell was folded by this function call.
   */
-  bool HideTree(GroupCell *tree);
+  bool HideTree(std::unique_ptr<GroupCell> &&tree);
 
   //! Unfold the current cell
-  GroupCell *UnhideTree();
+  std::unique_ptr<GroupCell> UnhideTree();
 
   /*! Unfold all that is needed to make the current cell seen
 
@@ -487,7 +480,7 @@ protected:
   int GetInputIndent();
   int GetLineIndent(Cell *cell);
 
-  GroupCell *m_hiddenTree = {}; //!< here hidden (folded) tree of GCs is stored
+  std::unique_ptr<GroupCell> m_hiddenTree = {}; //!< here the hidden (folded) tree of GCs is stored
   GroupCell *m_hiddenTreeParent = {}; //!< store linkage to the parent of the fold
   //! Which type this cell is of?
   GroupType m_groupType;
@@ -511,12 +504,8 @@ protected:
   //! The number of cells the current group contains (-1, if no GroupCell)
   int m_cellsInGroup;
   int m_numberedAnswersCount;
-  void UpdateCellsInGroup(){
-    if(m_output != NULL)
-      m_cellsInGroup = 2 + m_output->CellsInListRecursive();
-    else
-      m_cellsInGroup = 2;
-  }
+  void UpdateCellsInGroup()
+  { m_cellsInGroup = 2 + (m_output ? m_output->CellsInListRecursive() : 0); }
 };
 
 #endif /* GROUPCELL_H */

@@ -43,11 +43,7 @@ public:
 
   ~Printout();
 
-  void DestroyTree();
-
-  void DestroyTree(GroupCell *tree);
-
-  void SetData(GroupCell *tree);
+  void SetData(std::unique_ptr<GroupCell> &&tree);
 
   void SetupData();
 

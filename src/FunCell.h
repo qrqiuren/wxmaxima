@@ -54,14 +54,13 @@ class FunCell final : public Cell
 public:
   FunCell(GroupCell *parent, Configuration **config);
   FunCell(const FunCell &cell);
-  Cell *Copy() override { return new FunCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<FunCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_nameCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_argCell); }
 
-  void SetName(Cell *name);
-
-  void SetArg(Cell *arg);
+  void SetName(std::unique_ptr<Cell> &&name);
+  void SetArg(std::unique_ptr<Cell> &&arg);
 
   void RecalculateHeight(int fontsize) override;
 

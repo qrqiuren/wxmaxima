@@ -118,7 +118,7 @@ void OutCommon::RecalculateHeight(Cell *tree) const
   int fontsize = m_thisconfig.GetDefaultFontSize();
   int mathFontsize = m_thisconfig.GetMathFontSize();
 
-  for (Cell *tmp = tree; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = tree; tmp; tmp = tmp->GetNext())
     tmp->RecalculateHeight(tmp->IsMath() ? mathFontsize : fontsize);
 }
 
@@ -127,7 +127,7 @@ void OutCommon::RecalculateWidths(Cell *tree) const
   int fontsize = m_thisconfig.GetDefaultFontSize();
   int mathFontsize = m_thisconfig.GetMathFontSize();
 
-  for (Cell *tmp = tree; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = tree; tmp; tmp = tmp->GetNext())
     tmp->RecalculateWidths(tmp->IsMath() ? mathFontsize : fontsize);
 }
 

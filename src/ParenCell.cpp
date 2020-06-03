@@ -76,13 +76,7 @@ ParenCell::ParenCell(const ParenCell &cell):
   m_isBrokenIntoLines = cell.m_isBrokenIntoLines;
 }
 
-void ParenCell::SetInner(Cell *inner, CellType type)
-{
-  if (inner)
-    SetInner(std::unique_ptr<Cell>(inner), type);
-}
-
-void ParenCell::SetInner(std::unique_ptr<Cell> inner, CellType type)
+void ParenCell::SetInner(std::unique_ptr<Cell> &&inner, CellType type)
 {
   if (!inner)
     return;
@@ -94,8 +88,8 @@ void ParenCell::SetInner(std::unique_ptr<Cell> inner, CellType type)
 
   // Search for the last of the inner cells
   Cell *last1 = m_innerCell.get();
-  while (last1->m_next != NULL)
-    last1 = last1->m_next;
+  while (last1->GetNext())
+    last1 = last1->GetNext();
   m_last1 = last1;
   ResetSize();
 }

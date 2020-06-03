@@ -40,7 +40,7 @@ private:
 public:
   TextCell(GroupCell *parent, Configuration **config, const wxString &text = {}, TextStyle style = TS_FUNCTION);
   TextCell(const TextCell &cell);
-  Cell *Copy() override { return new TextCell(*this); }  
+  std::unique_ptr<Cell> Copy() override { return make_unique<TextCell>(*this); }
 
   double GetScaledTextSize() const;
   
@@ -92,7 +92,7 @@ public:
 
   wxString GetSymbolUnicode(bool keepPercent) const;
 
-  bool IsShortNum() override;
+  bool IsShortNum() const override;
 
   void SetType(CellType type) override;
 

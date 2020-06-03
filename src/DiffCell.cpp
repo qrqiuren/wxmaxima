@@ -48,20 +48,21 @@ DiffCell::DiffCell(const DiffCell &cell):
     SetBase(cell.m_baseCell->CopyList());
 }
 
-void DiffCell::SetDiff(Cell *diff)
+void DiffCell::SetDiff(std::unique_ptr<Cell> &&diff)
 {
   if (!diff)
     return;
-  m_diffCell.reset(diff);
 
+  m_diffCell = std::move(diff);
   m_diffCell->m_SuppressMultiplicationDot = true;
 }
 
-void DiffCell::SetBase(Cell *base)
+void DiffCell::SetBase(std::unique_ptr<Cell> &&base)
 {
   if (!base)
     return;
-  m_baseCell.reset(base);
+
+  m_baseCell = std::move(base);
 }
 
 void DiffCell::RecalculateWidths(int fontsize)
@@ -115,10 +116,10 @@ void DiffCell::Draw(wxPoint point)
 wxString DiffCell::ToString()
 {
   if (m_isBrokenIntoLines)
-    return wxEmptyString;
-  Cell *tmp = m_baseCell->m_next;
+    return {};
+  Cell *tmp = m_baseCell->GetNext();
   wxString s = wxT("'diff(");
-  if (tmp != NULL)
+  if (tmp)
     s += tmp->ListToString();
   s += m_diffCell->ListToString();
   s += wxT(")");
@@ -128,8 +129,8 @@ wxString DiffCell::ToString()
 wxString DiffCell::ToMatlab()
 {
   if (m_isBrokenIntoLines)
-	return wxEmptyString;
-  Cell *tmp = m_baseCell->m_next;
+    return {};
+  Cell *tmp = m_baseCell->GetNext();
   wxString s = wxT("'diff(");
   if (tmp != NULL)
 	s += tmp->ListToMatlab();

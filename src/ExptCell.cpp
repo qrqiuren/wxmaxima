@@ -74,12 +74,12 @@ void ExptCell::Draw(wxPoint point)
   }
 }
 
-void ExptCell::SetPower(Cell *power)
+void ExptCell::SetPower(std::unique_ptr<Cell> &&power)
 {
   if (!power)
     return;
-  m_exptCell.reset(power);
 
+  m_exptCell = std::move(power);
   if (!m_exptCell->IsCompound())
   {
     m_open->m_isHidden = true;
@@ -92,12 +92,12 @@ void ExptCell::SetPower(Cell *power)
       m_expt_last = m_expt_last->m_next;
 }
 
-void ExptCell::SetBase(Cell *base)
+void ExptCell::SetBase(std::unique_ptr<Cell> &&base)
 {
   if (!base)
     return;
-  m_baseCell.reset(base);
 
+  m_baseCell = std::move(base);
   m_base_last = base;
   if (m_base_last)
     while (m_base_last->m_next)

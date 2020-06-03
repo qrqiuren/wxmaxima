@@ -48,12 +48,12 @@ ConjugateCell::ConjugateCell(const ConjugateCell &cell):
     SetInner(cell.m_innerCell->CopyList());
 }
 
-void ConjugateCell::SetInner(Cell *inner)
+void ConjugateCell::SetInner(std::unique_ptr<Cell> &&inner)
 {
   if (!inner)
     return;
-  m_innerCell.reset(inner);
 
+  m_innerCell = std::move(inner);
   m_last = m_innerCell;
   if (m_last)
     while (m_last->m_next)

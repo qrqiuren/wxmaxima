@@ -52,14 +52,13 @@ class ParenCell final : public Cell
 public:
   ParenCell(GroupCell *parent, Configuration **config);
   ParenCell(const ParenCell &cell);
-  Cell *Copy() override { return new ParenCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<ParenCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_innerCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
 
   Cell *GetInner() const { return m_innerCell.get(); }
-  void SetInner(Cell *inner, CellType type = MC_TYPE_DEFAULT);
-  void SetInner(std::unique_ptr<Cell> inner, CellType type = MC_TYPE_DEFAULT);
+  void SetInner(std::unique_ptr<Cell> &&inner, CellType type = MC_TYPE_DEFAULT);
 
   void SetPrint(bool print) { m_print = print; }
 

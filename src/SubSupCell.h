@@ -31,24 +31,20 @@ class SubSupCell final : public Cell
 public:
   SubSupCell(GroupCell *parent, Configuration **config);
   SubSupCell(const SubSupCell &cell);
-  Cell *Copy() override { return new SubSupCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<SubSupCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_preSupCell); }
 
-  void SetBase(Cell *base);
+  void SetBase(std::unique_ptr<Cell> &&base);
+  void SetIndex(std::unique_ptr<Cell> &&index);
+  void SetExponent(std::unique_ptr<Cell> &&expt);
 
-  void SetIndex(Cell *index);
+  void SetPreSub(std::unique_ptr<Cell> &&index);
+  void SetPreSup(std::unique_ptr<Cell> &&index);
 
-  void SetExponent(Cell *expt);
-
-  void SetPreSub(Cell *index);
-
-  void SetPreSup(Cell *index);
-
-  void SetPostSub(Cell *index);
-
-  void SetPostSup(Cell *index);
+  void SetPostSub(std::unique_ptr<Cell> &&index);
+  void SetPostSup(std::unique_ptr<Cell> &&index);
   
   void RecalculateHeight(int fontsize) override;
 

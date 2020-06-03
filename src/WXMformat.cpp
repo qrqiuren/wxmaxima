@@ -214,7 +214,7 @@ wxString TreeToWXM(GroupCell *cell, bool wxm)
   return retval;
 }
 
-GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
+std::unique_ptr<GroupCell> TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
 {
   auto wxmLine = wxmLines.begin();
   auto const end = wxmLines.end();
@@ -238,7 +238,7 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
 
   bool hide = false;
   //! Hides the cell if a hide flag was set
-  const auto hideCell = [&hide](GroupCell *cell)
+  const auto hideCell = [&hide](const std::unique_ptr<GroupCell> &cell)
   {
     if (hide && cell)
     {
@@ -249,13 +249,13 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
 
   // Show a busy cursor while we read
   wxBusyCursor crs;
-  GroupCell *tree = {};
+  std::unique_ptr<GroupCell> tree;
   GroupCell *last = {};
   wxString question;
 
   while (wxmLine != end)
   {
-    GroupCell *cell = {};
+    std::unique_ptr<GroupCell> cell = {};
     WXMHeaderId headerId = Headers.LookupStart(*wxmLine ++);
     wxString line;
 
@@ -277,14 +277,14 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
     case WXM_COMMENT:
     case WXM_INPUT:
       line = getLinesUntil(Headers.GetEnd(headerId));
-      cell = new GroupCell(config, GroupType(headerId), line);
+      cell = make_unique<GroupCell>(config, GroupType(headerId), line);
       hideCell(cell);
       break;
 
       // Read an image caption
     case WXM_CAPTION:
       line = getLinesUntil(Headers.GetEnd(headerId));
-      cell = new GroupCell(config, GroupType(headerId));
+      cell = make_unique<GroupCell>(config, GroupType(headerId));
       cell->GetEditable()->SetValue(line);
       hideCell(cell);
       break;
@@ -296,8 +296,8 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
         wxString const imgtype = *wxmLine ++;
         auto ln = getLinesUntil(Headers.GetEnd(headerId));
         if (last && last->GetGroupType() == GC_TYPE_IMAGE)
-        last->SetOutput(
-            new ImgCell(NULL, config, wxBase64Decode(ln), imgtype));
+          last->SetOutput(
+            make_unique<ImgCell>(NULL, config, wxBase64Decode(ln), imgtype));
       }
       break;
 
@@ -322,7 +322,7 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
 
       // Read a page break tag
     case WXM_PAGEBREAK:
-      cell = new GroupCell(config, GC_TYPE_PAGEBREAK);
+      cell = make_unique<GroupCell>(config, GC_TYPE_PAGEBREAK);
       break;
 
       // Read a folded tree and build it
@@ -348,11 +348,14 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
 
     // We have created a cell in this pass
     if (!tree)
-      tree = last = cell;
+    {
+      tree = std::move(cell);
+      last = tree.get(); // note: cell is null here since it was moved into the tree
+    }
     else
     {
-      last->m_next = cell;
-      last->SetNextToDraw(cell);
+      last->m_next = std::move(cell);
+      last->SetNextToDraw(last->m_next.get());
       last->m_next->m_previous = last;
 
       last = last->GetNext();
@@ -361,7 +364,7 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
   return tree;
 }
 
-GroupCell *ParseWXMFile(wxTextBuffer &text, Configuration **config)
+std::unique_ptr<GroupCell> ParseWXMFile(wxTextBuffer &text, Configuration **config)
 {
   wxArrayString wxmLines;
   for (auto line = text.GetFirstLine(); ; line = text.GetNextLine())
@@ -371,21 +374,22 @@ GroupCell *ParseWXMFile(wxTextBuffer &text, Configuration **config)
       break;
   }
 
-  GroupCell *tree = Format::TreeFromWXM(wxmLines, config);
+  auto tree = Format::TreeFromWXM(wxmLines, config);
   return tree;
 }
 
-GroupCell *ParseMACContents(const wxString &macContents, Configuration **config)
+std::unique_ptr<GroupCell> ParseMACContents(const wxString &macContents, Configuration **config)
 {
-  GroupCell *tree = {}, *last = {};
-  auto const appendCell = [&last, &tree](GroupCell *cell)
+  std::unique_ptr<GroupCell> tree = {};
+  GroupCell *last = {};
+  auto const appendCell = [&last, &tree](std::unique_ptr<GroupCell> &&cell)
   {
     if (last)
-      last->AppendCell(cell);
+      last->AppendCell(std::move(cell));
     else
-      tree = cell;
+      tree = std::move(cell);
 
-    last = cell;
+    last = cell.get();
   };
 
   auto const end = macContents.end();
@@ -471,8 +475,7 @@ GroupCell *ParseMACContents(const wxString &macContents, Configuration **config)
             commentLines.Add(tokenizer.GetNextToken());
 
           // Interpret this array of lines as wxm code.
-          GroupCell *cell;
-          appendCell((cell = TreeFromWXM(commentLines, config)));
+          appendCell(TreeFromWXM(commentLines, config));
         }
         else
         {
@@ -486,8 +489,7 @@ GroupCell *ParseMACContents(const wxString &macContents, Configuration **config)
           else
             line.erase(0, 2);
 
-          GroupCell *cell;
-          appendCell((cell = new GroupCell(config, GC_TYPE_TEXT, line)));
+          appendCell(make_unique<GroupCell>(config, GC_TYPE_TEXT, line));
         }
         line.clear();
       }
@@ -514,8 +516,7 @@ GroupCell *ParseMACContents(const wxString &macContents, Configuration **config)
       {
         line.Trim(true);
         line.Trim(false);
-        GroupCell *cell;
-        appendCell((cell = new GroupCell(config, GC_TYPE_CODE, line)));
+        appendCell(make_unique<GroupCell>(config, GC_TYPE_CODE, line));
         line.clear();
       }
       s.lastChar = c;
@@ -526,14 +527,13 @@ GroupCell *ParseMACContents(const wxString &macContents, Configuration **config)
   line.Trim(false);
   if (!line.empty())
   {
-    GroupCell *cell;
-    appendCell((cell = new GroupCell(config, GC_TYPE_CODE, line)));
+    appendCell(make_unique<GroupCell>(config, GC_TYPE_CODE, line));
   }
 
   return tree;
 }
 
-GroupCell *ParseMACFile(wxTextBuffer &text, bool xMaximaFile, Configuration **config)
+std::unique_ptr<GroupCell> ParseMACFile(wxTextBuffer &text, bool xMaximaFile, Configuration **config)
 {
   bool input = true;
   wxString macContents;
@@ -564,7 +564,7 @@ GroupCell *ParseMACFile(wxTextBuffer &text, bool xMaximaFile, Configuration **co
       break;
   }
 
-  GroupCell *tree = Format::ParseMACContents(macContents, config);
+  auto tree = Format::ParseMACContents(macContents, config);
   return tree;
 }
 

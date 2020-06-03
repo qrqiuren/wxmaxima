@@ -95,7 +95,7 @@ public:
   //! The constructor
   EditorCell(GroupCell *parent, Configuration **config, const wxString &text = {});
   EditorCell(const EditorCell &cell);
-  Cell *Copy() override {return new EditorCell(*this);}
+  std::unique_ptr<Cell> Copy() override { return make_unique<EditorCell>(*this); }
 
   //! Insert the symbol that corresponds to the ESC command txt
   void InsertEscCommand(wxString txt){InsertText(InterpretEscapeString(txt));}

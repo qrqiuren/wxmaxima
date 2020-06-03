@@ -45,7 +45,7 @@ class SumCell final : public Cell
 public:
   SumCell(GroupCell *parent, Configuration **config);
   SumCell(const SumCell &cell);
-  Cell *Copy() override { return new SumCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<SumCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_under); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_paren); }
@@ -55,11 +55,9 @@ public:
 
   void Draw(wxPoint point) override;
 
-  void SetBase(Cell *base);
-
-  void SetUnder(Cell *under);
-
-  void SetOver(Cell *over);
+  void SetBase(std::unique_ptr<Cell> &&base);
+  void SetUnder(std::unique_ptr<Cell> &&under);
+  void SetOver(std::unique_ptr<Cell> &&over);
 
   void SetSumStyle(int style) { m_sumStyle = style; }
 

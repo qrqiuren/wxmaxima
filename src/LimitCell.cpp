@@ -63,33 +63,33 @@ LimitCell::LimitCell(const LimitCell &cell) :
     SetName(cell.m_name->CopyList());
 }
 
-void LimitCell::SetName(Cell *name)
+void LimitCell::SetName(std::unique_ptr<Cell> &&name)
 {
   if (!name)
     return;
-  m_name.reset(name);
-  m_name_last = name;
-  while(m_name_last->m_next != NULL)
+  m_name = std::move(name);
+  m_name_last = m_name.get();
+  while (m_name_last->m_next)
     m_name_last = m_name_last->m_next;
 }
 
-void LimitCell::SetBase(Cell *base)
+void LimitCell::SetBase(std::unique_ptr<Cell> &&base)
 {
   if (!base)
     return;
-  m_base.reset(base);
-  m_base_last = base;
-  while(m_base_last->m_next != NULL)
+  m_base = std::move(base);
+  m_base_last = m_base.get();
+  while (m_base_last->m_next)
     m_base_last = m_base_last->m_next;
 }
 
-void LimitCell::SetUnder(Cell *under)
+void LimitCell::SetUnder(std::unique_ptr<Cell> &&under)
 {
   if (!under)
     return;
-  m_under.reset(under);
-  m_under_last = under;
-  while(m_under_last->m_next != NULL)
+  m_under = std::move(under);
+  m_under_last = m_under.get();
+  while (m_under_last->m_next)
     m_under_last = m_under_last->m_next;
 }
 

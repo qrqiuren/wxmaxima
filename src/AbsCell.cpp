@@ -50,11 +50,11 @@ AbsCell::AbsCell(const AbsCell &cell):
     SetInner(cell.m_innerCell->CopyList());
 }
 
-void AbsCell::SetInner(Cell *inner)
+void AbsCell::SetInner(std::unique_ptr<Cell> &&inner)
 {
   if (!inner)
     return;
-  m_innerCell.reset(inner);
+  m_innerCell = std::move(inner);
 
   m_last = m_innerCell;
   if (m_last)

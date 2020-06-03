@@ -30,14 +30,13 @@ class SubCell final : public Cell
 public:
   SubCell(GroupCell *parent, Configuration **config);
   SubCell(const SubCell &cell);
-  Cell *Copy() override { return new SubCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<SubCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_baseCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_indexCell); }
 
-  void SetBase(Cell *base);
-
-  void SetIndex(Cell *index);
+  void SetBase(std::unique_ptr<Cell> &&base);
+  void SetIndex(std::unique_ptr<Cell> &&index);
 
   void RecalculateHeight(int fontsize) override;
 

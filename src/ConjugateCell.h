@@ -50,12 +50,12 @@ class ConjugateCell final : public Cell
 public:
   ConjugateCell(GroupCell *parent, Configuration **config);
   ConjugateCell(const ConjugateCell &cell);
-  Cell *Copy() override { return new ConjugateCell(*this); }
+  std::unique_ptr<Cell> Copy() override { return make_unique<ConjugateCell>(*this); }
 
   InnerCellIterator InnerBegin() const override { return InnerCellIterator(&m_innerCell); }
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_close); }
 
-  void SetInner(Cell *inner);
+  void SetInner(std::unique_ptr<Cell> &&inner);
 
   bool BreakUp() override;
 

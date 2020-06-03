@@ -55,25 +55,25 @@ FunCell::FunCell(const FunCell &cell):
     SetArg(cell.m_argCell->CopyList());
 }
 
-void FunCell::SetName(Cell *name)
+void FunCell::SetName(std::unique_ptr<Cell> &&name)
 {
   if (!name)
     return;
-  m_nameCell.reset(name);
-  
-  m_nameCell_Last = name;
-  while(m_nameCell_Last->m_next)
+
+  m_nameCell = std::move(name);
+  m_nameCell_Last = m_nameCell;
+  while (m_nameCell_Last->m_next)
     m_nameCell_Last = m_nameCell_Last->m_next;
   name->SetStyle(TS_FUNCTION);
 }
 
-void FunCell::SetArg(Cell *arg)
+void FunCell::SetArg(std::unique_ptr<Cell> &&arg)
 {  
   if (!arg)
     return;
-  m_argCell.reset(arg);
 
-  m_argCell_Last = arg;
+  m_argCell = std::move(arg);
+  m_argCell_Last = m_argCell;
   while(m_argCell_Last->m_next)
     m_argCell_Last = m_argCell_Last->m_next;
 }
