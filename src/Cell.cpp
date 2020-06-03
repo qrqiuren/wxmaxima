@@ -69,9 +69,9 @@ wxString Cell::GetToolTip(const wxPoint &point)
     return {};
 
   wxString toolTip;
-  for (auto cell = InnerBegin(); cell != InnerEnd(); ++ cell)
-    for (Cell *tmp = cell; tmp; tmp = tmp->GetNext())
-      if (!(toolTip = tmp->GetToolTip(point)).IsEmpty())
+  for (auto inner = InnerBegin(); inner != InnerEnd(); ++ cell)
+    for (Cell *tmp = &*inner; tmp; tmp = tmp->GetNext())
+      if (!(toolTip = tmp->GetToolTip(point)).empty())
         return toolTip;
 
   return m_toolTip;
@@ -192,12 +192,11 @@ std::unique_ptr<Cell> Cell::CopyList()
 {
   auto ret = Copy();
   Cell *dest = ret.get();
-  Cell *src = GetNext();
-  while (src)
+
+  for (Cell *src = m_next.get(); src; src = src->GetNext())
   {
     dest->AppendCell(src->Copy());
-    src = src->GetNext();
-    dest = dest->GetNext();
+    dest = dest->m_next.get();
   }
   return ret;
 }
@@ -218,16 +217,15 @@ int Cell::CellsInListRecursive() const
 {
   //! The number of cells the current group contains (-1, if no GroupCell)
   int cells = 0;
-
   for (const Cell *tmp = this; tmp; tmp = tmp->GetNext())
   {
     ++ cells;
-    for (auto cell = tmp->InnerBegin(); cell != tmp->InnerEnd(); ++ cell)
+    for (auto inner = tmp->InnerBegin(); inner != tmp->InnerEnd(); ++ inner)
     {
-      if (cell)
+      if (inner)
         // I believe with the if(cell) we cannot use std::accumulate here.
         // cppcheck-suppress useStlAlgorithm
-        cells += cell->CellsInListRecursive();
+        cells += inner->CellsInListRecursive();
     }
   }
   return cells;
@@ -298,15 +296,13 @@ int Cell::GetCenterList()
 {
   if ((m_maxCenter < 0) || ((*m_configuration)->RecalculationForce()))
   {
-    Cell *tmp = this;
     m_maxCenter  = 0;
-    while (tmp != NULL)
+    for (Cell *tmp = this; tmp; tmp = tmp->GetNextToDraw())
     {
       if ((tmp != this) && (tmp->m_breakLine))
         break;
       if(!tmp->m_isBrokenIntoLines)
         m_maxCenter = wxMax(m_maxCenter, tmp->m_center);
-      tmp = tmp->GetNextToDraw();
     }
   }
   return m_maxCenter;
@@ -461,7 +457,7 @@ void Cell::RecalculateList(int fontsize)
 
 void Cell::ResetSizeList()
 {
-  for (Cell *tmp = this; tmp != NULL; tmp = tmp->GetNext())
+  for (Cell *tmp = this; tmp; tmp = tmp->GetNext())
     tmp->ResetSize();
 }
 
@@ -1062,14 +1058,13 @@ void Cell::Unbreak()
   SetNextToDraw(m_next);
 
   // Unbreak the inner cells, too
-  for (auto cell = InnerBegin(); cell != InnerEnd(); ++ cell)
-    for (Cell *tmp = cell; tmp; tmp = tmp->GetNext())
-      tmp->Unbreak();
+  for (auto inner = InnerBegin(); inner != InnerEnd(); ++ inner)
+    cell->UnbreakList()
 }
 
 void Cell::UnbreakList()
 {
-  for(Cell *tmp = this; tmp != NULL; tmp = tmp->GetNext())
+  for(Cell *tmp = this; tmp; tmp = tmp->GetNext())
     tmp->Unbreak();
 }
 
@@ -1205,8 +1200,8 @@ wxAccStatus Cell::GetChildCount(int *childCount)
     return wxACC_FAIL;
 
   int count = 0;
-  for (auto cell = InnerBegin(); cell != InnerEnd(); ++ cell)
-    count += (cell ? 1 : 0);
+  for (auto inner = InnerBegin(); inner != InnerEnd(); ++ inner)
+    count += (inner ? 1 : 0);
 
   return (*childCount = count), wxACC_OK;
 }
@@ -1221,17 +1216,17 @@ wxAccStatus Cell::HitTest(const wxPoint &pt, int *childId, wxAccessible **child)
            wxACC_FAIL;
 
   int id = 0; // Child #0 is this very cell
-  for (auto cell = InnerBegin(); cell != InnerEnd(); ++ cell)
+  for (auto inner = InnerBegin(); inner != InnerEnd(); ++ inner)
   {
     // GetChildCount(), GetChild(), and this loop all skip null children - thus
     // the child identifiers present the same via the accessibility API.
-    if (!cell)
+    if (!inner)
       continue;
     ++ id; // The first valid inner cell will have id #1, and so on.
 
-    cell->GetLocation(rect, 0);
+    inner->GetLocation(rect, 0);
     if (rect.Contains(pt))
-      return (childId && (*childId = id)), (child && (*child = cell)),
+      return (childId && (*childId = id)), (child && (*child = &*inner)),
              wxACC_OK;
   }
 
@@ -1248,9 +1243,9 @@ wxAccStatus Cell::GetChild(int childId, wxAccessible **child)
     return (*child = this), wxACC_OK;
 
   if (childId > 0)
-    for (auto cell = InnerBegin(); cell != InnerEnd(); ++ cell)
-      if (cell && (--childId == 0))
-        return (*child = cell), wxACC_OK;
+    for (auto inner = InnerBegin(); inner != InnerEnd(); ++ inner)
+      if (inner && (--childId == 0))
+        return (*child = inner), wxACC_OK;
 
   return wxACC_FAIL;
 }
@@ -1258,15 +1253,15 @@ wxAccStatus Cell::GetChild(int childId, wxAccessible **child)
 wxAccStatus Cell::GetFocus(int *childId, wxAccessible **child)
 {
   int id = 0;
-  for (auto cell = InnerBegin(); cell != InnerEnd(); ++cell)
+  for (auto inner = InnerBegin(); inner != InnerEnd(); ++inner)
   {
-    if (!cell)
+    if (!inner)
       continue;
     ++ id;
 
     int dummy;
-    if (cell->GetFocus(&dummy, child) == wxACC_OK)
-      return (childId && (*childId = id)), (child && (*child = cell)),
+    if (inner->GetFocus(&dummy, child) == wxACC_OK)
+      return (childId && (*childId = id)), (child && (*child = &*inner)),
              wxACC_OK;
   }
 
