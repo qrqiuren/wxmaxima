@@ -666,10 +666,9 @@ void EditorCell::RecalculateWidths(int fontsize)
 
 wxString EditorCell::ToHTML()
 {
-  EditorCell *tmp = this;
   wxString retval;
 
-  while (tmp != NULL)
+  for (EditorCell *tmp = this; tmp; tmp = dynamic_cast<EditorCell*>(tmp->GetNext()))
   {
     for (std::vector<StyledText>::const_iterator textSnippet = m_styledText.begin();
          textSnippet != m_styledText.end(); ++textSnippet)
@@ -712,7 +711,6 @@ wxString EditorCell::ToHTML()
       else
         retval += text;
     }
-    tmp = dynamic_cast<EditorCell *>(tmp->m_next);
   }
   return retval;
 }

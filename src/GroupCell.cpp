@@ -630,7 +630,7 @@ void GroupCell::RecalculateHeightInput()
   
   if (!m_isHidden)
   {
-    for (Cell *tmp = m_output.get(); tmp; tmp->GetNext())
+    for (Cell *tmp = m_output.get(); tmp; tmp = tmp->GetNext())
       tmp->RecalculateHeight(tmp->IsMath() ?
                                            (*m_configuration)->GetMathFontSize() :
                                            (*m_configuration)->GetDefaultFontSize());
@@ -2295,7 +2295,7 @@ void GroupCell::Number(int &section, int &subsection, int &subsubsection, int &h
 
 bool GroupCell::IsMainInput(Cell *active) const
 {
-  return m_inputLabel->m_next && active == m_inputLabel->m_next;
+  return m_inputLabel->m_next && active == m_inputLabel->m_next.get();
 }
 
 bool GroupCell::Contains(GroupCell *cell)

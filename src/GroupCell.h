@@ -290,7 +290,7 @@ public:
   }
 
   //! Get the tree of cells that got hidden by folding this cell
-  GroupCell *GetHiddenTree() { return m_hiddenTree; }
+  GroupCell *GetHiddenTree() { return m_hiddenTree.get(); }
 
   /*! Fold the current cell
 
