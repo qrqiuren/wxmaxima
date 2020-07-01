@@ -197,10 +197,18 @@ public:
   void AppendInput(Cell *cell);
 
   //! Get the previous GroupCell in the list
-  GroupCell *GetPrevious() const { return m_previous.CastAs<GroupCell*>(); }
+  GroupCell *GetPrevious() const
+  {
+    wxASSERT(!m_previous || m_previous.CastAs<GroupCell *>());
+    return static_cast<GroupCell *>(m_previous.get());
+  }
 
   //! Get the next GroupCell in the list.
-  GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next); }
+  GroupCell *GetNext() const
+  {
+    wxASSERT(!m_next || dynamic_cast<GroupCell *>(m_next));
+    return static_cast<GroupCell *>(m_next);
+  }
 
   static wxString TexEscapeOutputCell(wxString Input);
 
