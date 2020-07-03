@@ -27,40 +27,30 @@
  */
 
 #include "SubCell.h"
-#include "VisiblyInvalidCell.h"
 
 #define SUB_DEC 2
 
-SubCell::SubCell(GroupCell *parent, Configuration **config) :
-  Cell(parent, config),
-  m_baseCell(new VisiblyInvalidCell(parent,config)),
-  m_indexCell(new VisiblyInvalidCell(parent,config))
+SubCell::SubCell(GroupCell *parent, Configuration **config, InitCells init)
+    : Cell(parent, config)
 {
+  if (init.init)
+  {
+    SetBase(nullptr);
+    SetIndex(nullptr);
+  }
 }
 
-SubCell::SubCell(const SubCell &cell):
-    SubCell(cell.m_group, cell.m_configuration)
+SubCell::SubCell(const SubCell &cell)
+    : SubCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_baseCell)
-    SetBase(cell.m_baseCell->CopyList());
-  if(cell.m_indexCell)
-    SetIndex(cell.m_indexCell->CopyList());
+  SetBase(CopyList(cell.m_baseCell.get()));
+  SetIndex(CopyList(cell.m_indexCell.get()));
 }
 
-void SubCell::SetIndex(Cell *index)
-{
-  if (!index)
-    return;
-  m_indexCell.reset(index);
-}
+void SubCell::SetIndex(Cell *index) { m_indexCell.reset(InvalidCellOr(index)); }
 
-void SubCell::SetBase(Cell *base)
-{
-  if (!base)
-    return;
-  m_baseCell.reset(base);
-}
+void SubCell::SetBase(Cell *base) { m_baseCell.reset(InvalidCellOr(base)); }
 
 void SubCell::RecalculateWidths(int fontsize)
 {

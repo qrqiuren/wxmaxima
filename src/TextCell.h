@@ -137,11 +137,7 @@ private:
     size has changed and we need to re-calculate the text width.
    */
   double m_lastCalculationFontSize;
-  //! The actual font size for labels (that have a fixed width)
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
 
-  CellPtr<Cell> m_nextToDraw;
   class SizeHash_internals
   {
   public:

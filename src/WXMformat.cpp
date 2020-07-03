@@ -193,11 +193,8 @@ static wxString &TreeToWXM(wxString &retval, GroupCell *cell, bool wxm)
   {
     if (wxm)
       retval << Headers.GetStart(WXM_FOLD) << '\n';
-    while (tmp)
-    {
+    for (; tmp; tmp = tmp->GetNext())
       retval << TreeToWXM(retval, tmp, wxm);
-      tmp = tmp->GetNext();
-    }
     if (wxm)
       retval << Headers.GetEnd(WXM_FOLD) << '\n';
   }
@@ -354,10 +351,8 @@ GroupCell *TreeFromWXM(const wxArrayString &wxmLines, Configuration **config)
       tree = last = cell;
     else
     {
-      last->m_next = cell;
-      last->SetNextToDraw(cell);
-      last->m_next->m_previous = last;
-
+      last->SetNext(cell);
+      last->SetNextToDraw(last->GetNext());
       last = last->GetNext();
     }
   }

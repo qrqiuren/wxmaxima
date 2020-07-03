@@ -74,11 +74,10 @@ void TableOfContents::UpdateTableOfContents(GroupCell *tree, GroupCell *pos)
   long selection = m_lastSelection;
   if (IsShown())
   {
-    GroupCell *cell = tree;
     m_structure.clear();
 
     // Get the current list of tokens that should be in the Table Of Contents.
-    while (cell != NULL)
+    for (auto *cell = tree; cell; cell = cell->GetNext())
     {
       int groupType = cell->GetGroupType();
       if (
@@ -97,8 +96,6 @@ void TableOfContents::UpdateTableOfContents(GroupCell *tree, GroupCell *pos)
         if (!m_structure.empty())
           selection = m_structure.size() - 1;
       }
-
-      cell = cell->GetNext();
     }
 
     long item = m_displayedItems->GetNextItem(-1,

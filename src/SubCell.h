@@ -28,7 +28,7 @@
 class SubCell final : public Cell
 {
 public:
-  SubCell(GroupCell *parent, Configuration **config);
+  SubCell(GroupCell *parent, Configuration **config, InitCells init = {});
   SubCell(const SubCell &cell);
   Cell *Copy() const override { return new SubCell(*this); }
 
@@ -36,7 +36,6 @@ public:
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_indexCell); }
 
   void SetBase(Cell *base);
-
   void SetIndex(Cell *index);
 
   void RecalculateHeight(int fontsize) override;
@@ -56,13 +55,8 @@ public:
   wxString ToOMML() override;
 
   wxString ToXML() override;
-
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
   
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_baseCell;
   std::unique_ptr<Cell> m_indexCell;

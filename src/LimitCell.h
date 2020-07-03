@@ -30,7 +30,6 @@
 #define LIMITCELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
 
 /* ! The cell type that represents a <code>limit</code> command
 
@@ -40,7 +39,7 @@
 class LimitCell final : public Cell
 {
 public:
-  LimitCell(GroupCell *parent, Configuration **config);
+  LimitCell(GroupCell *parent, Configuration **config, InitCells init = {});
   LimitCell(const LimitCell &cell);
   Cell *Copy() const override { return new LimitCell(*this); }
 
@@ -54,9 +53,7 @@ public:
   void Draw(wxPoint point) override;
 
   void SetBase(Cell *base);
-
   void SetUnder(Cell *under);
-
   void SetName(Cell *name);
 
   wxString ToString() override;
@@ -73,12 +70,10 @@ public:
 
   bool BreakUp() override;
 
-  void SetNextToDraw(Cell *next) override;
-  Cell *GetNextToDraw() const override {return m_nextToDraw;}
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_base;
   std::unique_ptr<Cell> m_under;

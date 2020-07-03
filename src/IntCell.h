@@ -39,7 +39,7 @@
 class IntCell final : public Cell
 {
 public:
-  IntCell(GroupCell *parent, Configuration **config);
+  IntCell(GroupCell *parent, Configuration **config, InitCells init = {});
   IntCell(const IntCell &cell);
   Cell *Copy() const override { return new IntCell(*this); }
 
@@ -83,9 +83,6 @@ public:
   wxString ToOMML() override;
 
   wxString ToXML() override;
-
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
 
 private:
   CellPtr<Cell> m_nextToDraw;

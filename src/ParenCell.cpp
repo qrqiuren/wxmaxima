@@ -29,14 +29,16 @@
 
 #include "ParenCell.h"
 #include "FontCache.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
-ParenCell::ParenCell(GroupCell *parent, Configuration **config) :
+ParenCell::ParenCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_innerCell(new VisiblyInvalidCell(parent,config)),
     m_open(new TextCell(parent, config, wxT("("))),
     m_close(new TextCell(parent, config, wxT(")")))
 {
+  if (init.init)
+    SetInner(nullptr);
+
   m_open->SetStyle(TS_FUNCTION);
   m_close->SetStyle(TS_FUNCTION);
   m_numberOfExtensions = 0;
@@ -68,28 +70,25 @@ ParenCell::ParenCell(GroupCell *parent, Configuration **config) :
 // cppcheck-suppress uninitMemberVar symbolName=ParenCell::m_signTopHeight
 // cppcheck-suppress uninitMemberVar symbolName=ParenCell::m_signBotHeight
 // cppcheck-suppress uninitMemberVar symbolName=ParenCell::m_extendHeight
-ParenCell::ParenCell(const ParenCell &cell):
-    ParenCell(cell.m_group, cell.m_configuration)
+ParenCell::ParenCell(const ParenCell &cell)
+    : ParenCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if (cell.m_innerCell)
-    SetInner(cell.m_innerCell->CopyList(), cell.m_type);
-  m_isBrokenIntoLines = cell.m_isBrokenIntoLines;
+  SetInner(CopyList(cell.m_innerCell.get()), cell.m_type);
+  if (cell.m_isBrokenIntoLines)
+    BreakUp();
 }
 
 void ParenCell::SetInner(Cell *inner, CellType type)
 {
-  if (inner)
-    SetInner(std::unique_ptr<Cell>(inner), type);
+  SetInner(std::unique_ptr<Cell>(inner), type);
 }
 
 void ParenCell::SetInner(std::unique_ptr<Cell> inner, CellType type)
 {
-  if (!inner)
-    return;
-  m_innerCell = std::move(inner);
-
+  m_innerCell = InvalidCellOr(std::move(inner));
   m_type = type;
+
   // Tell the first of our inner cells not to begin with a multiplication dot.
   m_innerCell->m_SuppressMultiplicationDot = true;
   ResetSize();
@@ -495,26 +494,20 @@ wxString ParenCell::ToXML()
 
 bool ParenCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_open->SetNextToDraw(m_innerCell);
-    m_innerCell->last()->SetNextToDraw(m_close);
-    m_close->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_open;
+  if (m_isBrokenIntoLines)
+    return false;
 
-    ResetData();
-    m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
-    m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
-    return true;
-  }
-  return false;
+  m_isBrokenIntoLines = true;
+  m_open->SetNextToDraw(m_innerCell);
+  m_innerCell->last()->SetNextToDraw(m_close);
+  m_close->SetNextToDraw(Cell::GetNextToDrawImpl());
+
+  ResetData();
+  m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
+  m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
+  return true;
 }
 
-void ParenCell::SetNextToDraw(Cell *next)
-{
-  if(m_isBrokenIntoLines)
-    m_close->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
-}
+void ParenCell::SetNextToDrawImpl(Cell *next) { m_close->SetNextToDraw(next); }
+
+Cell *ParenCell::GetNextToDrawImpl() const { return m_open.get();  }

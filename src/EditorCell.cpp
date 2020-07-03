@@ -712,7 +712,7 @@ wxString EditorCell::ToHTML()
       else
         retval += text;
     }
-    tmp = dynamic_cast<EditorCell *>(tmp->m_next);
+    tmp = dynamic_cast<EditorCell *>(tmp->GetNext());
   }
   return retval;
 }
@@ -4255,8 +4255,3 @@ wxAccStatus EditorCell::GetRole (int childId, wxAccRole *role)
 }
 
 #endif
-
-void EditorCell::SetNextToDraw(Cell *next)
-{
-  m_nextToDraw = next;
-}

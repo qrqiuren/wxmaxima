@@ -281,10 +281,10 @@ void TextCell::UpdateToolTip()
                     "needs to be an exact integer number."));
     if(m_text.StartsWith(wxT(": improper argument: ")))
     {
-      if((m_previous) && (m_previous->ToString() == wxT("at")))
+      if(GetPrevious() && (GetPrevious()->ToString() == wxT("at")))
         SetToolTip( _("The second argument of at() isn't an equation or a list of "
                       "equations. Most probably it was lacking an \"=\"."));
-      else if((m_previous) && (m_previous->ToString() == wxT("subst")))
+      else if(GetPrevious() && (GetPrevious()->ToString() == wxT("subst")))
         SetToolTip( _("The first argument of subst() isn't an equation or a list of "
                       "equations. Most probably it was lacking an \"=\"."));
       else
@@ -865,7 +865,7 @@ wxString TextCell::ToString()
   default:
   {}
   }
-  if((m_next != NULL) && (m_next->BreakLineHere()))
+  if (GetNext() && GetNext()->BreakLineHere())
     text += "\n";
   
   return text;
@@ -945,7 +945,7 @@ wxString TextCell::ToMatlab()
 	default:
 	{}
 	}
-	if((m_next != NULL) && (m_next->BreakLineHere()))
+        if (GetNext() && GetNext()->BreakLineHere())
 	  text += "\n";
 
 	return text;
@@ -1124,15 +1124,14 @@ wxString TextCell::ToTeX()
     {
       // We have a hidden multiplication sign
       if (
-        // This multiplication sign is between 2 cells
-              (m_previous && m_next) &&
-              // These cells are two variable names
-              ((m_previous->GetStyle() == TS_VARIABLE) && (m_next->GetStyle() == TS_VARIABLE)) &&
-              // The variable name prior to this cell has no subscript
-              (!(m_previous->ToString().Contains(wxT('_')))) &&
-              // we will be using \mathit{} for the TeX outout.
-              ((m_previous->ToString().Length() > 1) || (m_next->ToString().Length() > 1))
-              )
+          // This multiplication sign is between 2 cells
+          (GetPrevious() && GetNext()) &&
+          // These cells are two variable names
+          ((GetPrevious()->GetStyle() == TS_VARIABLE) && (GetNext()->GetStyle() == TS_VARIABLE)) &&
+          // The variable name prior to this cell has no subscript
+          (!(GetPrevious()->ToString().Contains(wxT('_')))) &&
+          // we will be using \mathit{} for the TeX outout.
+          ((GetPrevious()->ToString().Length() > 1) || (GetNext()->ToString().Length() > 1)))
         text = wxT("\\, ");
       else
         text = wxT(" ");
@@ -1160,9 +1159,9 @@ wxString TextCell::ToTeX()
     {
       // If we want to know if the last element was a "d" we first have to
       // look if there actually is a last element.
-      if (m_previous)
+      if (GetPrevious())
       {
-        if (m_previous->GetStyle() == TS_SPECIAL_CONSTANT && m_previous->ToTeX() == wxT("d"))
+        if (GetPrevious()->GetStyle() == TS_SPECIAL_CONSTANT && GetPrevious()->ToTeX() == wxT("d"))
         {
           text.Replace(wxT("*"), wxT("\\, "));
           text.Replace(wxT("\u00B7"), wxT("\\, "));
@@ -1295,7 +1294,7 @@ wxString TextCell::ToTeX()
   if ((GetStyle() == TS_LABEL) || (GetStyle() == TS_USERLABEL))
   {
     wxString conditionalLinebreak;
-    if (m_previous) conditionalLinebreak = wxT("\\]\n\\[");
+    if (GetPrevious()) conditionalLinebreak = wxT("\\]\n\\[");
     text.Trim(true);
     wxString label = text.SubString(1, text.Length() - 2);
     text = conditionalLinebreak + wxT("\\tag{") + label + wxT("}");
@@ -1445,11 +1444,10 @@ wxString TextCell::ToMathML()
 
 wxString TextCell::ToOMML()
 {
-  //Text-only lines are better handled in RTF.
-  if (
-          (m_previous && (m_previous->GetStyle() != TS_LABEL) && (!m_previous->HardLineBreak())) &&
-          (HardLineBreak())
-          )
+  // Text-only lines are better handled in RTF.
+  if ((GetPrevious() && (GetPrevious()->GetStyle() != TS_LABEL) &&
+       (!GetPrevious()->HardLineBreak())) &&
+      (HardLineBreak()))
     return wxEmptyString;
 
   // Labels are text-only.
@@ -1608,11 +1606,7 @@ wxString TextCell::GetDiffPart() const
 
 bool TextCell::IsShortNum() const
 {
-  if (m_next != NULL)
-    return false;
-  else if (m_text.Length() < 4)
-    return true;
-  return false;
+  return !GetNext() && m_text.Length() < 4;
 }
 
 wxString TextCell::GetGreekStringUnicode() const

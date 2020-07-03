@@ -56,7 +56,6 @@
 class EditorCell : public Cell
 {
 private:
-
   #if wxUSE_ACCESSIBILITY
   wxAccStatus GetDescription(int childId, wxString *description) override;
   wxAccStatus GetFocus (int *childId, wxAccessible **child) override;
@@ -548,10 +547,6 @@ public:
   //! Get the lost of commands, parenthesis, strings and whitespaces in a code cell
   const MaximaTokenizer::TokenList &GetTokens() const {return m_tokens;}
 
-  void SetNextToDraw(Cell *next) override;
-
-  Cell *GetNextToDraw() const override {return m_nextToDraw;}
-
 protected:
   void FontsChanged() override
     {
@@ -560,7 +555,6 @@ protected:
       m_widths.clear();
     }
 private:
-  CellPtr<Cell> m_nextToDraw;
   //! Determines the size of a text snippet
   wxSize GetTextSize(wxString const &text);
   //! Mark this cell as "Automatically answer questions".

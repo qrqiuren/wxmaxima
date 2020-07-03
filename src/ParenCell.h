@@ -31,7 +31,6 @@
 #define PARENCELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
 
 /*! The class that represents parenthesis that are wrapped around text
 
@@ -50,7 +49,7 @@
 class ParenCell final : public Cell
 {
 public:
-  ParenCell(GroupCell *parent, Configuration **config);
+  ParenCell(GroupCell *parent, Configuration **config, InitCells init = {});
   ParenCell(const ParenCell &cell);
   Cell *Copy() const override { return new ParenCell(*this); }
 
@@ -83,12 +82,10 @@ public:
 
   wxString ToXML() override;
 
-  void SetNextToDraw(Cell *next) override;
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   //! How to create a big parenthesis sign?
   Configuration::drawMode m_bigParenType;
   void SetFont(int fontsize);

@@ -28,18 +28,21 @@
 
 #include "FracCell.h"
 #include "ParenCell.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
 #define FRAC_DEC 1
 
-FracCell::FracCell(GroupCell *parent, Configuration **config) :
+FracCell::FracCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
     m_numParenthesis(new ParenCell(m_group, m_configuration)),
     m_denomParenthesis(new ParenCell(m_group, m_configuration)),
     m_divideOwner(new TextCell(parent, config, "/"))
 {
-  SetNum(new VisiblyInvalidCell(parent,config));
-  SetDenom(new VisiblyInvalidCell(parent,config));
+  if (init.init)
+  {
+    SetNum(nullptr);
+    SetDenom(nullptr);
+  }
   m_divide->SetStyle(TS_VARIABLE);
   m_fracStyle = FC_NORMAL;
   m_exponent = false;
@@ -48,31 +51,29 @@ FracCell::FracCell(GroupCell *parent, Configuration **config) :
   m_protrusion = 0;
 }
 
-FracCell::FracCell(const FracCell &cell):
-    FracCell(cell.m_group, cell.m_configuration)
+FracCell::FracCell(const FracCell &cell)
+    : FracCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if (cell.Num())
-    SetNum(cell.Num()->CopyList());
-  if (cell.Denom())
-    SetDenom(cell.Denom()->CopyList());
+  SetNum(CopyList(cell.Num()));
+  SetDenom(CopyList(cell.Denom()));
   m_fracStyle = cell.m_fracStyle;
   m_exponent = cell.m_exponent;
   SetupBreakUps();
 }
 
+Cell *FracCell::Num() const { return m_numParenthesis->GetInner(); }
+
+Cell *FracCell::Denom() const { return m_denomParenthesis->GetInner(); }
+
 void FracCell::SetNum(Cell *num)
 {
-  if (!num)
-    return;
   m_numParenthesis->SetInner(num);
   SetupBreakUps();
 }
 
 void FracCell::SetDenom(Cell *denom)
 {
-  if (!denom)
-    return;
   m_denomParenthesis->SetInner(denom);
   SetupBreakUps();
 }
@@ -109,12 +110,12 @@ void FracCell::RecalculateWidths(int fontsize)
       // We want half a space's widh of blank space to separate us from the
       // next minus.
       
-      if (m_previous && m_previous->ToString().EndsWith(wxT("-")))
+      if (GetPrevious() && GetPrevious()->ToString().EndsWith(wxT("-")))
         m_horizontalGapLeft = m_protrusion;
       else
         m_horizontalGapLeft = 0;
       
-      if (m_next && m_next->ToString().StartsWith(wxT("-")))
+      if (GetNext() && GetNext()->ToString().StartsWith(wxT("-")))
         m_horizontalGapRight = m_protrusion;
       else
         m_horizontalGapRight = 0;
@@ -239,17 +240,17 @@ wxString FracCell::ToString()
       Cell *tmp = Denom();
       while (tmp != NULL)
       {
-        tmp = tmp->m_next;   // Skip the d
+        tmp = tmp->GetNext();   // Skip the d
         if (tmp == NULL)
           break;
-        tmp = tmp->m_next;   // Skip the *
+        tmp = tmp->GetNext();   // Skip the *
         if (tmp == NULL)
           break;
         s += tmp->GetDiffPart();
-        tmp = tmp->m_next;   // Skip the *
+        tmp = tmp->GetNext();   // Skip the *
         if (tmp == NULL)
           break;
-        tmp = tmp->m_next;
+        tmp = tmp->GetNext();
       }
     }
   }
@@ -279,16 +280,16 @@ wxString FracCell::ToMatlab()
 	}
 	else
     {
-      for (Cell *tmp = Denom(); tmp; tmp = tmp->m_next)
+      for (Cell *tmp = Denom(); tmp; tmp = tmp->GetNext())
 	  {
-		tmp = tmp->m_next;   // Skip the d
+		tmp = tmp->GetNext();   // Skip the d
         if (!tmp)
 		  break;
-		tmp = tmp->m_next;   // Skip the *
+		tmp = tmp->GetNext();   // Skip the *
         if (!tmp)
 		  break;
 		s += tmp->GetDiffPart();
-		tmp = tmp->m_next;   // Skip the *
+		tmp = tmp->GetNext();   // Skip the *
         if (!tmp)
 		  break;
 	  }
@@ -372,31 +373,27 @@ void FracCell::SetupBreakUps()
 
 bool FracCell::BreakUp()
 {
-  if (m_fracStyle == FC_DIFF)
+  if (m_fracStyle == FC_DIFF || m_isBrokenIntoLines)
     return false;
 
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    if(Num() && Num()->m_next)
-      m_displayedNum = m_numParenthesis.get();
-    if(Denom() && Denom()->m_next)
-      m_displayedDenom = m_denomParenthesis.get();
-    // Note: Yes, we don't want m_displayedNum->last() here.
-    m_displayedNum->SetNextToDraw(m_divide);
-    m_divide->SetNextToDraw(m_displayedDenom);
-    m_displayedDenom->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_displayedNum;
-    ResetData();    
-    return true;
-  }
-  return false;
+  m_isBrokenIntoLines = true;
+  if (::GetNext(Num()))
+    m_displayedNum = m_numParenthesis.get();
+  if (::GetNext(Denom()))
+    m_displayedDenom = m_denomParenthesis.get();
+
+  // Note: Yes, we don't want m_displayedNum->last() here.
+  m_displayedNum->SetNextToDraw(m_divide);
+  m_divide->SetNextToDraw(m_displayedDenom);
+  m_displayedDenom->SetNextToDraw(Cell::GetNextToDrawImpl());
+  ResetData();
+  return true;
 }
 
-void FracCell::SetNextToDraw(Cell *next)
+void FracCell::SetNextToDrawImpl(Cell *next)
 {
-  if (m_isBrokenIntoLines)
-    m_denomParenthesis->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
+  m_denomParenthesis->SetNextToDraw(next);
+  //m_displayedDenom->SetNextToDraw(next);
 }
+
+Cell *FracCell::GetNextToDrawImpl() const { return m_displayedNum; }

@@ -29,17 +29,21 @@
 */
 
 #include "SumCell.h"
-#include "TextCell.h"
 #include "FontCache.h"
-#include "VisiblyInvalidCell.h"
+#include "ParenCell.h"
+#include "TextCell.h"
 
-SumCell::SumCell(GroupCell *parent, Configuration **config) :
+SumCell::SumCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_under(new TextCell(parent, config)),
-    m_over(new TextCell(parent, config)),
     m_paren(new ParenCell(parent, config))
 {
   wxASSERT(Base()); // m_paren constructs its inner cell by default
+  if (init.init)
+  {
+    SetUnder(nullptr);
+    SetOver(nullptr);
+  }
+
   m_signHeight = 50;
   m_signTop = (2 * m_signHeight) / 5;
   m_signWidth = 30;
@@ -50,30 +54,23 @@ SumCell::SumCell(GroupCell *parent, Configuration **config) :
 // cppcheck-suppress uninitMemberVar symbolName=SumCell::m_signHeight
 // cppcheck-suppress uninitMemberVar symbolName=SumCell::m_signWidth
 // cppcheck-suppress uninitMemberVar symbolName=SumCell::m_signWCenter
-SumCell::SumCell(const SumCell &cell) :
-    SumCell(cell.m_group, cell.m_configuration)
+SumCell::SumCell(const SumCell &cell)
+    : SumCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if (cell.Base())
-    SetBase(cell.Base()->CopyList());
-  if (cell.m_under)
-  SetUnder(cell.m_under->CopyList());
-  if (cell.m_over)
-    SetOver(cell.m_over->CopyList());
+  SetBase(CopyList(cell.Base()));
+  SetUnder(CopyList(cell.m_under.get()));
+  SetOver(CopyList(cell.m_over.get()));
   m_sumStyle = cell.m_sumStyle;
 }
 
 void SumCell::SetOver(Cell *over)
 {
-  if (!over)
-    return;
-  m_over.reset(over);
+  m_over.reset(over ? over : new TextCell(m_group, m_configuration));
 }
 
 void SumCell::SetBase(Cell *base)
 {
-  if (!base)
-    return;
   Paren()->SetInner(base);
   wxASSERT(Base() == base);
   m_displayedBase = m_paren;
@@ -81,9 +78,7 @@ void SumCell::SetBase(Cell *base)
 
 void SumCell::SetUnder(Cell *under)
 {
-  if (!under)
-    return;
-  m_under.reset(under);
+  m_under.reset(under ? under : new TextCell(m_group, m_configuration));
 }
 
 void SumCell::RecalculateWidths(int fontsize)
@@ -266,10 +261,10 @@ wxString SumCell::ToString()
   Cell *tmp = m_under.get();
   wxString var = tmp->ToString();
   wxString from;
-  tmp = tmp->m_next;
+  tmp = tmp->GetNext();
   if (tmp != NULL)
   {
-    tmp = tmp->m_next;
+    tmp = tmp->GetNext();
     if (tmp != NULL)
       from = tmp->ListToString();
   }
@@ -294,10 +289,10 @@ wxString SumCell::ToMatlab()
   Cell *tmp = m_under.get();
   wxString var = tmp->ToMatlab();
   wxString from;
-  tmp = tmp->m_next;
+  tmp = tmp->GetNext();
   if (tmp != NULL)
   {
-	tmp = tmp->m_next;
+	tmp = tmp->GetNext();
 	if (tmp != NULL)
 	  from = tmp->ListToMatlab();
   }
@@ -355,6 +350,9 @@ wxString SumCell::ToOMML()
   return retval;
 }
 
+ParenCell *SumCell::Paren() const { return static_cast<ParenCell*>(m_paren.get()); }
+
+Cell *SumCell::Base() const { return Paren()->GetInner(); }
 
 wxString SumCell::ToXML()
 {

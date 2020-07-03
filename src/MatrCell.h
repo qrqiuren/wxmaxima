@@ -74,12 +74,7 @@ public:
 
   void RoundedParens(bool rounded) { m_roundedParens = rounded;}
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   unsigned int m_matWidth;
   bool m_roundedParens;
   unsigned int m_matHeight;

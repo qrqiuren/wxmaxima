@@ -50,6 +50,8 @@ enum GroupType
   GC_TYPE_PAGEBREAK
 };
 
+class EditorCell;
+
 /*! A cell grouping input (and, if there is one, also the output) cell to a foldable item
 
 Items where a list of groupcells can be folded include
@@ -70,6 +72,8 @@ public:
   GroupCell(const GroupCell &cell);
   Cell *Copy() const override { return new GroupCell(*this); }
   ~GroupCell();
+
+  GroupCell *CopyList() const { return static_cast<GroupCell *>(Cell::CopyList()); }
 
   wxString GetAnswer(int answer)
     {
@@ -196,23 +200,17 @@ public:
 
   void AppendInput(Cell *cell);
 
-  //! Get the previous GroupCell in the list
-  GroupCell *GetPrevious() const { return m_previous.CastAs<GroupCell*>(); }
-
-  //! Get the next GroupCell in the list.
-  GroupCell *GetNext() const override { return dynamic_cast<GroupCell *>(m_next); }
+  GroupCell *first() const { return static_cast<GroupCell *>(Cell::first()); }
+  GroupCell *last() const { return static_cast<GroupCell *>(Cell::last()); }
+  GroupCell *GetPrevious() const { return static_cast<GroupCell *>(Cell::GetPrevious()); }
+  GroupCell *GetNext() const  { return static_cast<GroupCell *>(Cell::GetNext()); }
+  GroupCell *SetNext(Cell *cell) override;
 
   static wxString TexEscapeOutputCell(wxString Input);
 
   Cell *GetPrompt() { return m_inputLabel.get(); }
 
-  EditorCell *GetInput() const
-    {
-      if (m_inputLabel != NULL)
-        return dynamic_cast<EditorCell *>(m_inputLabel.get()->m_next);
-      else
-        return NULL;
-    }
+  EditorCell *GetInput() const;
 
   /*! Returns the list of cells the output consists of, starting with the label.
 
@@ -224,8 +222,7 @@ public:
 
     See also GetLabel()
   */
-  Cell *GetOutput() const
-  { if (m_output == NULL) return NULL; else return m_output->m_next; }
+  Cell *GetOutput() const { return m_output ? m_output->GetNext() : nullptr; }
 
   //! Determine which rectangle is occupied by this GroupCell
   wxRect GetOutputRect() const { return m_outputRect; }
@@ -366,13 +363,7 @@ public:
    */
   void Draw(wxPoint point) override;
 
-  bool AddEnding() override
-    {
-      if(GetEditable() != NULL)
-        return GetEditable()->AddEnding();
-      else
-        return false;
-    }
+  bool AddEnding() override;
 
   //! Draw the bracket of this cell
   void DrawBracket();
@@ -402,10 +393,6 @@ public:
   WX_DECLARE_STRING_HASH_MAP(wxString, StringHash);
   //! A list of answers provided by the user
   StringHash m_knownAnswers;
-
-  void SetNextToDraw(Cell *next) override;
-
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
 
 #if wxUSE_ACCESSIBILITY
   wxAccStatus GetDescription(int childId, wxString *description) override;
@@ -471,7 +458,7 @@ public:
     
     \return The next GroupCell or NULL if there isn't any.
   */
-  GroupCell *UpdateYPosition();
+  void UpdateYPosition();
 
   void UpdateYPositionList();
 
@@ -498,7 +485,6 @@ protected:
   int m_mathFontSize;
   static wxString m_lookalikeChars;
 
-  CellPtr<Cell> m_nextToDraw;
   //! Does this GroupCell automatically fill in the answer to questions?
   bool m_autoAnswer;
   wxRect m_outputRect;
@@ -515,5 +501,8 @@ protected:
       m_cellsInGroup = 2;
   }
 };
+
+inline GroupCell *GetNext(GroupCell *cell) { return cell ? cell->GetNext() : nullptr; }
+inline GroupCell *GetPrevious(GroupCell *cell) { return cell ? cell->GetPrevious() : nullptr; }
 
 #endif /* GROUPCELL_H */

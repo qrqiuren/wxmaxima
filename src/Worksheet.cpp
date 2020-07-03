@@ -689,7 +689,7 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where)
 
 // InsertGroupCells
 // inserts groupcells after position "where" (NULL = top of the document)
-// Multiple groupcells can be inserted when tree->m_next != NULL
+// Multiple groupcells can be inserted when tree->Next() != NULL
 // Returns the pointer to the last inserted group cell to have fun with
 GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
                                        UndoActions *undoBuffer)
@@ -697,7 +697,7 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
   if (!cells)
     return NULL; // nothing to insert
   bool worksheetSizeHasChanged = true;
-  if (where && where->m_next)
+  if (where && where->GetNext())
     worksheetSizeHasChanged = false;
 
   m_configuration->AdjustWorksheetSize(true);
@@ -714,7 +714,7 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
   GroupCell *lastOfCellsToInsert = cells;
   if (lastOfCellsToInsert->IsFoldable() || (lastOfCellsToInsert->GetGroupType() == GC_TYPE_IMAGE))
     renumbersections = true;
-  while (lastOfCellsToInsert->m_next)
+  while (lastOfCellsToInsert->GetNext())
   {
     if (lastOfCellsToInsert->IsFoldable() || (lastOfCellsToInsert->GetGroupType() == GC_TYPE_IMAGE))
       renumbersections = true;
@@ -733,17 +733,14 @@ GroupCell *Worksheet::InsertGroupCells(GroupCell *cells, GroupCell *where,
   }
   prev = where;
 
-  cells->m_previous = where;
-  lastOfCellsToInsert->m_next = next;
-  lastOfCellsToInsert->SetNextToDraw(next);
+  lastOfCellsToInsert->SetNext(next);
+  lastOfCellsToInsert->SetNextToDraw(lastOfCellsToInsert->GetNext());
 
   if (prev)
   {
-    prev->m_next = cells;
-    prev->SetNextToDraw(cells);
+    prev->SetNext(cells);
+    prev->SetNextToDraw(prev->GetNext());
   }
-  if (next)
-    next->m_previous = lastOfCellsToInsert;
   // make sure m_last still points to the last cell of the worksheet!!
   if (!next) // if there were no further cells
     m_last = lastOfCellsToInsert;
@@ -771,7 +768,7 @@ GroupCell *Worksheet::UpdateMLast()
 {
   m_last = GetTree();
   if (m_last)
-    m_last = dynamic_cast<GroupCell*>(m_last->last());
+    m_last = m_last->last();
   if (m_last)
     m_configuration->AdjustWorksheetSize(true);
   return m_last;
@@ -852,7 +849,7 @@ void Worksheet::InsertLine(Cell *newCell, bool forceNewLine)
   tmp->AppendOutput(newCell);
   
   UpdateConfigurationClientSize();
-  if (!tmp->m_next)
+  if (!tmp->GetNext())
     UpdateMLast();
   OutputChanged();
   Recalculate(tmp, false);
@@ -903,7 +900,7 @@ void Worksheet::SetZoomFactor(double newzoom, bool recalc)
       wxRect rect = cellToScrollTo->GetRect();
       if (rect.GetBottom() > topleft.y)
         break;
-      cellToScrollTo = cellToScrollTo->m_next;
+      cellToScrollTo = cellToScrollTo->GetNext();
     }
   }
   if (recalc)
@@ -1016,7 +1013,7 @@ void Worksheet::OnSize(wxSizeEvent& WXUNUSED(event))
       wxRect rect = CellToScrollTo->GetRect();
       if (rect.GetBottom() > topleft.y)
         break;
-      CellToScrollTo = CellToScrollTo->m_next;
+      CellToScrollTo = CellToScrollTo->GetNext();
     }
   }
 
@@ -1234,19 +1231,14 @@ GroupCell *Worksheet::TearOutTree(GroupCell *start, GroupCell *end)
   if (!start || !end)
     return {};
   GroupCell *prev = start->GetPrevious();
-  GroupCell *next = end->GetNext();
-
-  end->m_next = NULL;
-  end->SetNextToDraw(NULL);
-  start->m_previous = {};
+  GroupCell *next = end->SetNext(nullptr);
+  end->SetNextToDraw(end->GetNext());
 
   if (prev)
   {
-    prev->m_next = next;
-    prev->SetNextToDraw(next);
+    prev->SetNext(next);
+    prev->SetNextToDraw(prev->GetNext());
   }
-  if (next)
-    next->m_previous = prev;
   // fix m_last if we tore it
   if (end == m_last)
     m_last = prev;
@@ -1287,17 +1279,13 @@ void Worksheet::OnMouseRightDown(wxMouseEvent &event)
       // SELECTION OF OUTPUT
     else
     {
-      Cell *tmp = m_cellPointers.m_selectionStart;
-      wxRect rect;
-      while (tmp != NULL)
+      for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNextToDraw())
       {
-        rect = tmp->GetRect();
+        auto rect = tmp->GetRect();
         if (rect.Contains(downx, downy))
           clickInSelection = true;
-
         if (tmp == m_cellPointers.m_selectionEnd)
           break;
-        tmp = tmp->GetNextToDraw();
       }
     }
   }
@@ -2144,7 +2132,7 @@ void Worksheet::SelectGroupCells(wxPoint down, wxPoint up)
     rect = tmp->GetRect();
     if (ybottom < rect.GetTop())
     {
-      m_cellPointers.m_selectionEnd = tmp->m_previous;
+      m_cellPointers.m_selectionEnd = tmp->GetPrevious();
       break;
     }
   }
@@ -2153,7 +2141,7 @@ void Worksheet::SelectGroupCells(wxPoint down, wxPoint up)
 
   if (m_cellPointers.m_selectionStart)
   {
-    if (m_cellPointers.m_selectionEnd == m_cellPointers.m_selectionStart->m_previous)
+    if (m_cellPointers.m_selectionEnd == m_cellPointers.m_selectionStart->GetPrevious())
     {
       SetHCaret(m_cellPointers.m_selectionEnd.CastAs<GroupCell*>());
     }
@@ -2273,8 +2261,7 @@ wxString Worksheet::GetString(bool lb)
     return GetActiveCell() ? GetActiveCell()->ToString() : wxString{};
 
   wxString s;
-  for (Cell *tmp = m_cellPointers.m_selectionStart;
-       tmp; tmp = tmp->GetNextToDraw())
+  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNextToDraw())
   {
     if (lb && tmp->BreakLineHere() && s.Length() > 0)
       s += wxT("\n");
@@ -2480,7 +2467,7 @@ bool Worksheet::CopyMatlab()
 
   wxString result;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
   {
     if (tmp->HardLineBreak() && !firstcell)
 	  result += wxT("\n");
@@ -2523,7 +2510,7 @@ bool Worksheet::CopyTeX()
     inMath = true;
     if (wrapLatexMath)
       s = wxT("\\[");
-    for (; tmp; tmp = tmp->m_next)
+    for (; tmp; tmp = tmp->GetNext())
     {
       s += tmp->ToTeX();
       if (tmp == m_cellPointers.m_selectionEnd)
@@ -2532,7 +2519,7 @@ bool Worksheet::CopyTeX()
   }
   else
   {
-    for (GroupCell *gc = dynamic_cast<GroupCell *>(tmp); gc; gc = gc->GetNext())
+    for (auto *gc = dynamic_cast<GroupCell *>(tmp); gc; gc = gc->GetNext())
     {
       int imgCtr;
       s += gc->ToTeX(wxEmptyString, wxEmptyString, &imgCtr);
@@ -2565,7 +2552,7 @@ bool Worksheet::CopyText()
 
   wxString result;
   bool firstcell = true;
-  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = m_cellPointers.m_selectionStart; tmp; tmp = tmp->GetNext())
   {
     if (tmp->HardLineBreak() && !firstcell)
       result += wxT("\n");
@@ -2863,35 +2850,22 @@ void Worksheet::DeleteRegion(GroupCell *start, GroupCell *end, UndoActions *undo
 
   GroupCell *cellBeforeStart = start->GetPrevious();
 
-  // If the selection ends with the last file of the file m_last has to be
+  // If the selection ends with the last cell of the file, then m_last has to be
   // set to the last cell that isn't deleted.
   if (end == m_last)
     m_last = cellBeforeStart;
 
   // Unlink the to-be-deleted cells from the worksheet.
-  if (!start->m_previous)
-    m_tree = end->GetNext();
+  if (!cellBeforeStart)
+  {
+    m_tree = end->SetNext(nullptr);
+    end->SetNextToDraw(end->GetNext());
+  }
   else
   {
-    start->m_previous->m_next = end->m_next;
-    start->m_previous->SetNextToDraw(end->m_next);
+    start = cellBeforeStart->SetNext(end->GetNext());
+    cellBeforeStart->SetNextToDraw(cellBeforeStart->GetNext());
   }
-
-  if (end->m_next)
-    end->m_next->m_previous = start->m_previous;
-  else
-  {
-    if (start->m_previous)
-    {
-      start->m_previous->m_next = NULL;
-      start->m_previous->SetNextToDraw(NULL);
-    }
-  }
-
-  // Add an "end of tree" marker to both ends of the list of deleted cells
-  end->m_next = NULL;
-  end->SetNextToDraw(NULL);
-  start->m_previous = {};
 
   // Do we have an undo buffer for this action?
   if (undoBuffer)
@@ -2993,7 +2967,7 @@ void Worksheet::OpenHCaret(const wxString &txt, GroupType type)
   if (GetWorkingGroup() && m_questionPrompt)
   {
     if ((GetActiveCell() && GetActiveCell()->GetGroup() == GetWorkingGroup()) ||
-        (m_hCaretPosition && m_hCaretPosition == GetWorkingGroup()->m_next))
+        (m_hCaretPosition && m_hCaretPosition == GetWorkingGroup()->GetNext()))
     {
       OpenQuestionCaret(txt);
       return;
@@ -3283,7 +3257,7 @@ void Worksheet::OnCharInActive(wxKeyEvent &event)
     // Get the first previous cell that isn't hidden
     GroupCell *previous = GetActiveCell()->GetGroup()->GetPrevious();
     while (previous && (previous->GetMaxDrop() == 0))
-      previous = previous->m_previous.CastAs<GroupCell*>();
+      previous = previous->GetPrevious();
 
     if (event.ShiftDown())
     {
@@ -3333,13 +3307,13 @@ void Worksheet::OnCharInActive(wxKeyEvent &event)
   {
     // Get the first next cell that isn't hidden
     GroupCell *start = GetActiveCell()->GetGroup();
-    while (start && start->m_next && start->m_next->GetMaxDrop() == 0)
+    while (GetNext(start) && start->GetNext()->GetMaxDrop() == 0)
       start = start->GetNext();
 
     if (event.ShiftDown())
     {
       GroupCell *end = start;
-      if (end->m_next)
+      if (end->GetNext())
         end = end->GetNext();
 
       SetSelection(start, end);
@@ -3412,7 +3386,7 @@ void Worksheet::OnCharInActive(wxKeyEvent &event)
     if(GetActiveCell()->CaretAtEnd())
     {
       GroupCell *newGroup = GetActiveCell()->GetGroup();
-      while (newGroup && newGroup->m_next && newGroup->m_next->GetMaxDrop() == 0)
+      while (GetNext(newGroup) && newGroup->GetNext()->GetMaxDrop() == 0)
         newGroup = newGroup->GetNext();
       SetHCaret(newGroup);
       return;
@@ -3524,11 +3498,11 @@ void Worksheet::SelectWithChar(int ccode)
     if (!m_hCaretPositionStart)
       return;
 
-    if (ccode == WXK_DOWN && m_hCaretPosition && m_hCaretPositionStart->m_next)
+    if (ccode == WXK_DOWN && m_hCaretPosition && m_hCaretPositionStart->GetNext())
     {
       m_hCaretPositionStart = m_hCaretPositionEnd = m_hCaretPositionStart->GetNext();
       while (m_hCaretPositionStart && m_hCaretPositionStart->GetMaxDrop() == 0 &&
-             m_hCaretPositionStart->m_next)
+             m_hCaretPositionStart->GetNext())
         m_hCaretPositionStart = m_hCaretPositionEnd = m_hCaretPositionStart->GetNext();
     }
   }
@@ -3552,7 +3526,7 @@ void Worksheet::SelectWithChar(int ccode)
 
       if (prev)
       {
-        if (m_hCaretPosition && m_hCaretPosition->m_next == m_hCaretPositionEnd)
+        if (m_hCaretPosition && m_hCaretPosition->GetNext() == m_hCaretPositionEnd)
           m_hCaretPositionStart = prev;
         if (m_hCaretPositionEnd)
           m_hCaretPositionEnd = prev;
@@ -3635,8 +3609,8 @@ void Worksheet::SelectEditable(EditorCell *editor, bool up)
         SetHCaret(GetTree());
       else
       {
-        if (m_hCaretPosition->m_next)
-          SetHCaret( m_hCaretPosition->GetNext());
+        if (m_hCaretPosition->GetNext())
+          SetHCaret(m_hCaretPosition->GetNext());
         else
           SetHCaret(m_last);
       }
@@ -3816,7 +3790,7 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
         }
         ScrolledAwayFromEvaluation();
       }
-      else if (m_hCaretPosition->m_next)
+      else if (m_hCaretPosition->GetNext())
       {
         SetSelection(m_hCaretPosition->GetNext());
         m_hCaretActive = false;
@@ -3842,16 +3816,14 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
           if (event.CmdDown())
           {
             GroupCell *tmp = m_cellPointers.m_selectionStart.CastAs<GroupCell*>();
-            if (tmp->m_previous)
+            if (tmp->GetPrevious())
             {
-              do tmp = tmp->GetPrevious();
-              while (
-                (tmp->m_previous) && (
-                  (tmp->GetGroupType() != GC_TYPE_TITLE) &&
-                  (tmp->GetGroupType() != GC_TYPE_SECTION) &&
-                  (tmp->GetGroupType() != GC_TYPE_SUBSECTION)
-                  )
-                );
+              do
+                tmp = tmp->GetPrevious();
+              while ((tmp->GetPrevious()) &&
+                     ((tmp->GetGroupType() != GC_TYPE_TITLE) &&
+                      (tmp->GetGroupType() != GC_TYPE_SECTION) &&
+                      (tmp->GetGroupType() != GC_TYPE_SUBSECTION)));
               if (tmp->GetEditable())
                 SetHCaret(tmp);
             }
@@ -3869,16 +3841,13 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
           if (event.CmdDown())
           {
             GroupCell *tmp = m_hCaretPosition;
-            if (tmp->m_previous)
+            if (tmp->GetPrevious())
             {
               do tmp = tmp->GetPrevious();
-              while (
-                (tmp->m_previous) && (
-                  (tmp->GetGroupType() != GC_TYPE_TITLE) &&
-                  (tmp->GetGroupType() != GC_TYPE_SECTION) &&
-                  (tmp->GetGroupType() != GC_TYPE_SUBSECTION)
-                  )
-                );
+              while ((tmp->GetPrevious()) &&
+                     ((tmp->GetGroupType() != GC_TYPE_TITLE) &&
+                      (tmp->GetGroupType() != GC_TYPE_SECTION) &&
+                      (tmp->GetGroupType() != GC_TYPE_SUBSECTION)));
               SetHCaret(tmp);
             }
             else if (tmp->GetEditable())
@@ -3919,11 +3888,11 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
           if (event.CmdDown())
           {
             GroupCell *tmp = m_cellPointers.m_selectionEnd.CastAs<GroupCell*>();
-            if (tmp->m_next)
+            if (tmp->GetNext())
             {
               do tmp = tmp->GetNext();
               while (
-                tmp->m_next && (
+                tmp->GetNext() && (
                   (
                     (tmp->GetGroupType() != GC_TYPE_TITLE) &&
                     (tmp->GetGroupType() != GC_TYPE_SECTION) &&
@@ -3943,28 +3912,24 @@ void Worksheet::OnCharNoActive(wxKeyEvent &event)
             SetHCaret(m_cellPointers.m_selectionEnd.CastAs<GroupCell*>());
 
         }
-        else if (m_hCaretPosition && m_hCaretPosition->m_next)
+        else if (GetNext(m_hCaretPosition))
         {
           if (event.CmdDown())
           {
             GroupCell *tmp = m_hCaretPosition;
-            if (tmp->m_next)
-            {
-              do tmp = tmp->GetNext();
-              while (
-                tmp->m_next && (
-                  (tmp->GetGroupType() != GC_TYPE_TITLE) &&
-                  (tmp->GetGroupType() != GC_TYPE_SECTION) &&
-                  (tmp->GetGroupType() != GC_TYPE_SUBSECTION) &&
-                  (tmp->GetGroupType() != GC_TYPE_SUBSUBSECTION) &&
-                  (tmp->GetGroupType() != GC_TYPE_HEADING5) &&
-                  (tmp->GetGroupType() != GC_TYPE_HEADING6)
-                  )
-                );
-              SetHCaret(tmp);
-            }
-            else
-              SelectEditable(tmp->GetEditable(), false);
+            do tmp = tmp->GetNext();
+            while (
+              tmp->GetNext() && (
+                (tmp->GetGroupType() != GC_TYPE_TITLE) &&
+                (tmp->GetGroupType() != GC_TYPE_SECTION) &&
+                (tmp->GetGroupType() != GC_TYPE_SUBSECTION) &&
+                (tmp->GetGroupType() != GC_TYPE_SUBSUBSECTION) &&
+                (tmp->GetGroupType() != GC_TYPE_HEADING5) &&
+                (tmp->GetGroupType() != GC_TYPE_HEADING6)
+                )
+              );
+            SetHCaret(tmp);
+
           }
           else
             SelectEditable(m_hCaretPosition->GetNext()->GetEditable(), true);
@@ -4151,7 +4116,7 @@ void Worksheet::GetMaxPoint(int *width, int *height)
   int currentHeight = m_configuration->GetIndent();
   *width = m_configuration->GetBaseIndent();
 
-  for (Cell *tmp = GetTree(); tmp; tmp = tmp->m_next)
+  for (Cell *tmp = GetTree(); tmp; tmp = tmp->GetNext())
   {
     currentHeight += tmp->GetHeightList();
     currentHeight += m_configuration->GetGroupSkip();
@@ -4403,7 +4368,7 @@ void Worksheet::DestroyTree()
 
 GroupCell *Worksheet::CopyTree() const
 {
-  auto *tree = GetTree() ? dynamic_cast<GroupCell*>(GetTree()->CopyList()) : nullptr;
+  auto *tree = GetTree() ? GetTree()->CopyList() : nullptr;
   return tree;
 }
 
@@ -4557,14 +4522,11 @@ Cell *Worksheet::CopySelection(Cell *start, Cell *end, bool asData) const
     else
     {
       outEnd->AppendCell(tmp->Copy());
-      outEnd = outEnd->m_next;
+      outEnd = outEnd->GetNext();
     }
     if (tmp == end)
       break;
-    if (asData)
-      tmp = tmp->m_next;
-    else
-      tmp = tmp->GetNextToDraw();
+    tmp = asData ? tmp->GetNext() : tmp->GetNextToDraw();
   }
 
   return out;
@@ -5308,16 +5270,16 @@ bool Worksheet::ExportToHTML(const wxString &file)
                   (chunkEnd->GetType() != MC_TYPE_SLIDE) &&
                   (chunkEnd->GetType() != MC_TYPE_IMAGE)
                   )
-            while (chunkEnd->m_next != NULL)
+            while (chunkEnd->GetNext() != NULL)
             {
               if (
-                      (chunkEnd->m_next->GetType() == MC_TYPE_SLIDE) ||
-                      (chunkEnd->m_next->GetType() == MC_TYPE_IMAGE) ||
-                      (chunkEnd->m_next->GetStyle() == TS_LABEL) ||
-                      (chunkEnd->m_next->GetStyle() == TS_USERLABEL)
+                      (chunkEnd->GetNext()->GetType() == MC_TYPE_SLIDE) ||
+                      (chunkEnd->GetNext()->GetType() == MC_TYPE_IMAGE) ||
+                      (chunkEnd->GetNext()->GetStyle() == TS_LABEL) ||
+                      (chunkEnd->GetNext()->GetStyle() == TS_USERLABEL)
                       )
                 break;
-              chunkEnd = chunkEnd->m_next;
+              chunkEnd = chunkEnd->GetNext();
             }
 
           // Create a list containing only our chunk.
@@ -5429,7 +5391,7 @@ bool Worksheet::ExportToHTML(const wxString &file)
           }
           count++;
 
-          chunkStart = chunkEnd->m_next;
+          chunkStart = chunkEnd->GetNext();
         }
       }
     }
@@ -6317,10 +6279,10 @@ bool Worksheet::CanEdit()
   if (!m_cellPointers.m_selectionStart->IsEditable())
     return false;
 
-  if (!m_cellPointers.m_selectionStart->m_previous)
+  if (!m_cellPointers.m_selectionStart->GetPrevious())
     return false;
 
-  if (m_cellPointers.m_selectionStart->m_previous->GetType() != MC_TYPE_MAIN_PROMPT)
+  if (m_cellPointers.m_selectionStart->GetPrevious()->GetType() != MC_TYPE_MAIN_PROMPT)
     return false;
 
   return true;
@@ -6369,7 +6331,7 @@ bool Worksheet::ActivatePrevInput()
   if (!tmp)
     return false;
 
-  while (tmp && tmp->m_previous && tmp->m_previous->GetMaxDrop() == 0)
+  while (GetPrevious(tmp) && tmp->GetPrevious()->GetMaxDrop() == 0)
     tmp = tmp->GetPrevious();
 
   EditorCell *inpt = {};
@@ -6412,7 +6374,7 @@ bool Worksheet::ActivateNextInput(bool input)
   if (!tmp)
     return false;
 
-  while (tmp && tmp->GetNext() && tmp->m_next->GetMaxDrop() == 0)
+  while (GetNext(tmp) && tmp->GetNext()->GetMaxDrop() == 0)
     tmp = tmp->GetNext();
 
   EditorCell *inpt = {};
@@ -6534,7 +6496,7 @@ void Worksheet::AddDocumentTillHereToEvaluationQueue()
     if (!GetActiveCell())
       return;
     stop = GetActiveCell()->GetGroup();
-    if (stop->m_previous)
+    if (stop->GetPrevious())
       stop = stop->GetPrevious();
   }
 
@@ -6770,7 +6732,7 @@ bool Worksheet::TreeUndoCellDeletion(UndoActions *sourcelist, UndoActions *undoF
   TreeUndoAction &action = sourcelist->front();
   GroupCell *newCursorPos = action.m_oldCells.get();
   if (newCursorPos)
-    while (newCursorPos->m_next)
+    while (newCursorPos->GetNext())
       newCursorPos = newCursorPos->GetNext();
   InsertGroupCells(action.m_oldCells.release(), action.m_start, undoForThisOperation);
   SetHCaret(newCursorPos);
@@ -6791,7 +6753,7 @@ bool Worksheet::TreeUndoCellAddition(UndoActions *sourcelist, UndoActions *undoF
                _("Got a request to undo an action that involves a delete which isn't possible at this moment."));
 
   // Set the cursor to a sane position.
-  if (action.m_newCellsEnd->m_next)
+  if (action.m_newCellsEnd->GetNext())
     SetHCaret(action.m_newCellsEnd->GetNext());
   else
     SetHCaret(action.m_start->GetPrevious());
@@ -7139,7 +7101,7 @@ void Worksheet::PasteFromClipboard()
 
         // Search for the last cell we want to paste
         GroupCell *end = contents;
-        while (end->m_next)
+        while (end->GetNext())
           end = end->GetNext();
 
         // Now paste the cells
@@ -7273,23 +7235,22 @@ void Worksheet::DivideCell()
 void Worksheet::MergeCells()
 {
   wxString newcell;
-  Cell *tmp = m_cellPointers.m_selectionStart;
-  if (!tmp)
+  auto *const selStart = dynamic_cast<GroupCell*>(m_cellPointers.m_selectionStart.get());
+  if (!selStart)
     return;
-  if (tmp->GetType() != MC_TYPE_GROUP)
-    return; // should not happen
+  // selStart is non-null since dynamic_cast does type checking
+  wxASSERT(selStart->GetType() == MC_TYPE_GROUP);
 
-  for (; tmp; tmp = tmp->m_next)
+  for (auto *tmp = selStart; tmp; tmp = tmp->GetNext())
   {
     if (newcell.Length() > 0)
       newcell += wxT("\n");
-    newcell += dynamic_cast<GroupCell *>(tmp)->GetEditable()->GetValue();
+    newcell += tmp->GetEditable()->GetValue();
 
     if (tmp == m_cellPointers.m_selectionEnd)
       break;
   }
 
-  GroupCell *selStart = m_cellPointers.m_selectionStart.CastAs<GroupCell*>();
   EditorCell *editor = selStart->GetEditable();
   editor->SetValue(newcell);
 
@@ -7675,7 +7636,7 @@ bool Worksheet::FindNext(const wxString &str, bool down, bool ignoreCase, bool w
     pos = GetActiveCell()->GetGroup();
   else if (m_hCaretActive)
   {
-    pos = (down && m_hCaretPosition && m_hCaretPosition->m_next)
+    pos = (down && m_hCaretPosition && m_hCaretPosition->GetNext())
             ? m_hCaretPosition->GetNext()
             : m_hCaretPosition;
   }
@@ -8153,7 +8114,7 @@ bool Worksheet::InsertText(const wxString &text)
 
 void Worksheet::OpenNextOrCreateCell()
 {
-  if (m_hCaretPosition && m_hCaretPosition->m_next)
+  if (m_hCaretPosition && m_hCaretPosition->GetNext())
   {
     SetSelection(m_hCaretPosition);
     ActivateNextInput();
@@ -8350,12 +8311,9 @@ wxAccStatus Worksheet::AccessibilityInfo::GetChild (int childId, wxAccessible **
   }
 
   int childCount = 0;
-  GroupCell *cell = m_worksheet->GetTree();
-  while (cell && childCount < childId)
-  {
+  auto *cell = m_worksheet->GetTree();
+  for (; cell && childCount < childId; cell = cell->GetNext())
     childCount++;
-    cell = cell->GetNext();
-  }
 
   *child = cell;
   return cell ? wxACC_OK : wxACC_FAIL;
@@ -8412,7 +8370,7 @@ wxAccStatus Worksheet::AccessibilityInfo::GetParent (wxAccessible ** parent)
 //              *child = cell;
 //            return wxACC_OK;
 //          }
-//       cell = cell->GetNext();
+//       cell = cell->Next();
 //     }
 
 //     if(childId != NULL)

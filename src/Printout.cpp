@@ -116,12 +116,12 @@ bool Printout::OnPrintPage(int num)
       // No Idea why, though.
       dc->SetPen(wxPen(wxT("light grey"), 1, wxPENSTYLE_SOLID));
       tmp->Draw(point);
-      if (tmp->m_next != NULL)
+      if (tmp->GetNext() != NULL)
       {
         point.x = marginX;
-        point.y += drop + tmp->m_next->GetCenterList();
+        point.y += drop + tmp->GetNext()->GetCenterList();
         point.y += (*m_configuration)->Scale_Px((*m_configuration)->GetGroupSkip());
-        drop = tmp->m_next->GetMaxDrop();
+        drop = tmp->GetNext()->GetMaxDrop();
       }
 
       tmp = tmp->GetNext();
@@ -309,20 +309,18 @@ void Printout::PrintHeader(int pageNum, wxDC *dc)
 
 void Printout::Recalculate()
 {
-  GroupCell *tmp = m_tree.get();
-
   int marginX, marginY;
   GetPageMargins(&marginX, &marginY);
   int pageWidth, pageHeight;
   GetPageSizePixels(&pageWidth, &pageHeight);
 
-//  marginX += (*m_configuration)->Scale_Px((*m_configuration)->GetBaseIndent());
+  //  marginX +=
+  //  (*m_configuration)->Scale_Px((*m_configuration)->GetBaseIndent());
 
-  while (tmp != NULL)
+  for (GroupCell *tmp = m_tree.get(); tmp; tmp = tmp->GetNext())
   {
     tmp->ResetSize();
     tmp->Recalculate();
-    tmp = tmp->GetNext();
   }
 }
 

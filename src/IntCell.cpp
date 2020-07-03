@@ -29,7 +29,6 @@
 #include "IntCell.h"
 #include "FontCache.h"
 #include "TextCell.h"
-#include "VisiblyInvalidCell.h"
 
 #if defined __WXMSW__
 #define INTEGRAL_TOP "\xF3"
@@ -38,13 +37,16 @@
 #define INTEGRAL_FONT_SIZE 12
 #endif
 
-IntCell::IntCell(GroupCell *parent, Configuration **config) :
-    Cell(parent, config),
-    m_base(new VisiblyInvalidCell(parent,config)),
-    m_under(new TextCell(parent, config)),
-    m_over(new TextCell(parent, config)),
-    m_var(new VisiblyInvalidCell(parent,config))
+IntCell::IntCell(GroupCell *parent, Configuration **config, InitCells init) :
+    Cell(parent, config)
 {
+  if (init.init)
+  {
+    SetBase(nullptr);
+    SetUnder(nullptr);
+    SetOver(nullptr);
+    SetVar(nullptr);
+  }
   m_signHeight = 35;
   m_signWidth = 18;
   m_signTop = m_signHeight / 2;
@@ -59,48 +61,30 @@ IntCell::IntCell(GroupCell *parent, Configuration **config) :
 // cppcheck-suppress uninitMemberVar symbolName=IntCell::m_signTop
 // cppcheck-suppress uninitMemberVar symbolName=IntCell::m_charHeight
 // cppcheck-suppress uninitMemberVar symbolName=IntCell::m_charWidth
-IntCell::IntCell(const IntCell &cell):
-    IntCell(cell.m_group, cell.m_configuration)
+IntCell::IntCell(const IntCell &cell)
+    : IntCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_base)
-    SetBase(cell.m_base->CopyList());
-  if(cell.m_under)
-    SetUnder(cell.m_under->CopyList());
-  if(cell.m_over)
-    SetOver(cell.m_over->CopyList());
-  if(cell.m_var)
-    SetVar(cell.m_var->CopyList());
+  SetBase(CopyList(cell.m_base.get()));
+  SetUnder(CopyList(cell.m_under.get()));
+  SetOver(CopyList(cell.m_over.get()));
+  SetVar(CopyList(cell.m_var.get()));
   m_intStyle = cell.m_intStyle;
 }
 
 void IntCell::SetOver(Cell *name)
 {
-  if (!name)
-    return;
-  m_over.reset(name);
-}
-
-void IntCell::SetBase(Cell *base)
-{
-  if (!base)
-    return;
-  m_base.reset(base);
+  m_over.reset(name ? name : new TextCell(m_group, m_configuration));
 }
 
 void IntCell::SetUnder(Cell *under)
 {
-  if (!under)
-    return;
-  m_under.reset(under);
+  m_under.reset(under ? under : new TextCell(m_group, m_configuration));
 }
 
-void IntCell::SetVar(Cell *var)
-{
-  if (!var)
-    return;
-  m_var.reset(var);
-}
+void IntCell::SetBase(Cell *base) { m_base.reset(InvalidCellOr(base)); }
+
+void IntCell::SetVar(Cell *var) { m_var.reset(InvalidCellOr(var)); }
 
 void IntCell::RecalculateWidths(int fontsize)
 {
@@ -397,7 +381,7 @@ wxString IntCell::ToString()
 
   Cell *tmp = m_var.get();
   wxString var;
-  tmp = tmp->m_next;
+  tmp = tmp->GetNext();
   if (tmp != NULL)
   {
     var = tmp->ListToString();
@@ -422,7 +406,7 @@ wxString IntCell::ToMatlab()
 
   Cell *tmp = m_var.get();
   wxString var;
-  tmp = tmp->m_next;
+  tmp = tmp->GetNext();
   if (tmp != NULL)
   {
 	var = tmp->ListToMatlab();

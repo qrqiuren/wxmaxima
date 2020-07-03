@@ -24,7 +24,6 @@
 #define CONJUGATECELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
 
 /*! \file
 
@@ -48,7 +47,7 @@
 class ConjugateCell final : public Cell
 {
 public:
-  ConjugateCell(GroupCell *parent, Configuration **config);
+  ConjugateCell(GroupCell *parent, Configuration **config, InitCells init = {});
   ConjugateCell(const ConjugateCell &cell);
   Cell *Copy() const override { return new ConjugateCell(*this); }
 
@@ -59,12 +58,10 @@ public:
 
   bool BreakUp() override;
 
-  void SetNextToDraw(Cell *next) override;
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_innerCell;
   std::unique_ptr<Cell> m_open;

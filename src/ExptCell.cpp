@@ -27,18 +27,21 @@
  */
 
 #include "ExptCell.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
 #define EXPT_DEC 2
 
-ExptCell::ExptCell(GroupCell *parent, Configuration **config) :
+ExptCell::ExptCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_baseCell(new VisiblyInvalidCell(parent,config)),
-    m_exptCell(new VisiblyInvalidCell(parent,config)),
     m_exp(new TextCell(parent, config, "^")),
     m_open(new TextCell(parent, config, "(")),
     m_close(new TextCell(parent, config, ")"))
 {
+  if (init.init)
+  {
+    SetBase(nullptr);
+    SetPower(nullptr);
+  }
   m_open->SetStyle(TS_FUNCTION);
   m_close->SetStyle(TS_FUNCTION);
   m_exp->SetStyle(TS_FUNCTION);
@@ -47,14 +50,12 @@ ExptCell::ExptCell(GroupCell *parent, Configuration **config) :
   static_cast<TextCell&>(*m_open).DontEscapeOpeningParenthesis();
 }
 
-ExptCell::ExptCell(const ExptCell &cell):
-    ExptCell(cell.m_group, cell.m_configuration)
+ExptCell::ExptCell(const ExptCell &cell)
+    : ExptCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_baseCell)
-    SetBase(cell.m_baseCell->CopyList());
-  if(cell.m_exptCell)
-    SetPower(cell.m_exptCell->CopyList());
+  SetBase(CopyList(cell.m_baseCell.get()));
+  SetPower(CopyList(cell.m_exptCell.get()));
 }
 
 void ExptCell::Draw(wxPoint point)
@@ -75,10 +76,7 @@ void ExptCell::Draw(wxPoint point)
 
 void ExptCell::SetPower(Cell *power)
 {
-  if (!power)
-    return;
-  m_exptCell.reset(power);
-
+  m_exptCell.reset(InvalidCellOr(power));
   if (!m_exptCell->IsCompound())
   {
     m_open->m_isHidden = true;
@@ -86,12 +84,7 @@ void ExptCell::SetPower(Cell *power)
   }
 }
 
-void ExptCell::SetBase(Cell *base)
-{
-  if (!base)
-    return;
-  m_baseCell.reset(base);
-}
+void ExptCell::SetBase(Cell *base) { m_baseCell.reset(InvalidCellOr(base)); }
 
 void ExptCell::RecalculateWidths(int fontsize)
 {
@@ -235,19 +228,21 @@ wxString ExptCell::ToXML()
 
 bool ExptCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_baseCell->last()->SetNextToDraw(m_exp);
-    m_exp->SetNextToDraw(m_open);
-    m_open->SetNextToDraw(m_exptCell);
-    m_exptCell->last()->SetNextToDraw(m_close);
-    m_close->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_baseCell;
-    m_height = 1;
-    m_center = 1;
-    ResetData();    
-    return true;
-  }
-  return false;
+  if (m_isBrokenIntoLines)
+    return false;
+
+  m_isBrokenIntoLines = true;
+  m_baseCell->last()->SetNextToDraw(m_exp);
+  m_exp->SetNextToDraw(m_open);
+  m_open->SetNextToDraw(m_exptCell);
+  m_exptCell->last()->SetNextToDraw(m_close);
+  m_close->SetNextToDraw(Cell::GetNextToDrawImpl());
+  m_height = 1;
+  m_center = 1;
+  ResetData();
+  return true;
 }
+
+void ExptCell::SetNextToDrawImpl(Cell *next) { m_close->SetNextToDraw(next); }
+
+Cell *ExptCell::GetNextToDrawImpl() const { return m_baseCell.get();  }

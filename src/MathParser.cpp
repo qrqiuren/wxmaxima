@@ -415,11 +415,9 @@ Cell *MathParser::ParseCellTag(wxXmlNode *node)
         if (last == NULL) last = cell;
         else
         {
-          last->m_next = cell;
-          last->SetNextToDraw(cell);
-          last->m_next->m_previous = last;
-          
-          last = last->m_next;
+          last->SetNext(cell);
+          last->SetNextToDraw(last->GetNext());
+          last = last->GetNext();
         }
         xmlcells = GetNextTag(xmlcells);
       }
@@ -1060,7 +1058,7 @@ Cell *MathParser::ParseTag(wxXmlNode *node, bool all)
       if (retval == NULL)
         retval = cell;
       else
-        cell = cell->m_next;
+        cell = cell->GetNext();
     }
     else if ((warning) && (!all))
     {

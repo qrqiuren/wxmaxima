@@ -52,7 +52,7 @@
 class FunCell final : public Cell
 {
 public:
-  FunCell(GroupCell *parent, Configuration **config);
+  FunCell(GroupCell *parent, Configuration **config, InitCells init = {});
   FunCell(const FunCell &cell);
   Cell *Copy() const override { return new FunCell(*this); }
 
@@ -60,7 +60,6 @@ public:
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_argCell); }
 
   void SetName(Cell *name);
-
   void SetArg(Cell *arg);
 
   void RecalculateHeight(int fontsize) override;
@@ -83,12 +82,10 @@ public:
 
   bool BreakUp() override;
 
-  void SetNextToDraw(Cell *next) override;
-  Cell *GetNextToDraw() const override {return m_nextToDraw;}
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_nameCell;
   std::unique_ptr<Cell> m_argCell;

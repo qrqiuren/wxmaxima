@@ -118,7 +118,7 @@ void OutCommon::RecalculateHeight(Cell *tree) const
   int fontsize = m_thisconfig.GetDefaultFontSize();
   int mathFontsize = m_thisconfig.GetMathFontSize();
 
-  for (Cell *tmp = tree; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = tree; tmp; tmp = tmp->GetNext())
     tmp->RecalculateHeight(tmp->IsMath() ? mathFontsize : fontsize);
 }
 
@@ -127,7 +127,7 @@ void OutCommon::RecalculateWidths(Cell *tree) const
   int fontsize = m_thisconfig.GetDefaultFontSize();
   int mathFontsize = m_thisconfig.GetMathFontSize();
 
-  for (Cell *tmp = tree; tmp; tmp = tmp->m_next)
+  for (Cell *tmp = tree; tmp; tmp = tmp->GetNext())
     tmp->RecalculateWidths(tmp->IsMath() ? mathFontsize : fontsize);
 }
 
@@ -204,28 +204,28 @@ void OutCommon::Draw(Cell *tree)
     if (!tmp->m_isBrokenIntoLines)
     {
       tmp->Draw(point);
-      if (tmp->m_next && tmp->m_next->BreakLineHere())
+      if (tmp->GetNext() && tmp->GetNext()->BreakLineHere())
       {
         point.x = 0;
-        point.y += drop + tmp->m_next->GetCenterList();
+        point.y += drop + tmp->GetNext()->GetCenterList();
         if (tmp->m_bigSkip)
           // Note: This skip was observerd in EMFout and SVGout, but not BitmapOut.
           point.y += MC_LINE_SKIP;
-        drop = tmp->m_next->GetMaxDrop();
+        drop = tmp->GetNext()->GetMaxDrop();
       }
       else
         point.x += (tmp->GetWidth());
     }
     else
     {
-      if (tmp->m_next && tmp->m_next->BreakLineHere())
+      if (tmp->GetNext() && tmp->GetNext()->BreakLineHere())
       {
         point.x = 0;
-        point.y += drop + tmp->m_next->GetCenterList();
+        point.y += drop + tmp->GetNext()->GetCenterList();
         if (tmp->m_bigSkip)
           // Note: This skip was observerd in EMFout and SVGout, but not BitmapOut.
           point.y += MC_LINE_SKIP;
-        drop = tmp->m_next->GetMaxDrop();
+        drop = tmp->GetNext()->GetMaxDrop();
       }
     }
   }

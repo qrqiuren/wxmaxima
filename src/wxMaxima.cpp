@@ -3373,8 +3373,7 @@ bool wxMaxima::OpenWXMXFile(const wxString &file, Worksheet *document, bool clea
     GroupCell *pos = m_worksheet->GetTree();
 
     for (long i = 1; i < ActiveCellNumber; i++)
-      if (pos)
-        pos = pos->GetNext();
+      pos = GetNext(pos);
 
     if (pos)
       m_worksheet->SetHCaret(pos);
@@ -3491,7 +3490,7 @@ GroupCell *wxMaxima::CreateTreeFromXMLNode(wxXmlNode *xmlcells, const wxString &
       mc = mp.ParseTag(xmlcells, false);
       if (mc != NULL)
       {
-        GroupCell *cell = dynamic_cast<GroupCell *>(mc);
+        auto *cell = dynamic_cast<GroupCell *>(mc);
 
         if (last == NULL)
         {
@@ -3501,10 +3500,8 @@ GroupCell *wxMaxima::CreateTreeFromXMLNode(wxXmlNode *xmlcells, const wxString &
         else
         {
           // The rest of the cells
-          last->m_next = cell;
-          last->SetNextToDraw(cell);
-          last->m_next->m_previous = last;
-
+          last->SetNext(cell);
+          last->SetNextToDraw(last->GetNext());
           last = last->GetNext();
         }
       }
@@ -5938,13 +5935,13 @@ void wxMaxima::EditMenu(wxCommandEvent &event)
       if(m_worksheet->GetSelectionEnd() != NULL)
         end = m_worksheet->GetSelectionEnd()->GetGroup();
       bool marked = !cell->GetSuppressTooltipMarker();
-      while(cell != NULL)
-        {
-          cell->SetSuppressTooltipMarker(marked);
-          if(cell == end)
-            break;
-          cell = dynamic_cast<GroupCell *>(cell->m_next);
-        }
+
+      for (; cell; cell = cell->GetNext())
+      {
+        cell->SetSuppressTooltipMarker(marked);
+        if (cell == end)
+          break;
+      }
       m_worksheet->OutputChanged();
       break;
     }
@@ -6020,8 +6017,9 @@ void wxMaxima::MaximaMenu(wxCommandEvent &event)
     case menu_jumptoerror:
       if (m_worksheet->GetErrorList().FirstError())
       {
-        m_worksheet->SetActiveCell(dynamic_cast<GroupCell *>(m_worksheet->GetErrorList().FirstError())->GetEditable());
-        dynamic_cast<GroupCell *>(m_worksheet->GetErrorList().FirstError())->GetEditable()->CaretToEnd();
+        auto *firstError = m_worksheet->GetErrorList().FirstError();
+        m_worksheet->SetActiveCell(firstError->GetEditable());
+        firstError->GetEditable()->CaretToEnd();
       }
       break;
     case ToolBar::menu_restart_id:
@@ -8529,10 +8527,9 @@ void wxMaxima::PopupMenu(wxCommandEvent &event)
         if((m_worksheet->GetTree()) && (m_worksheet->GetTree()->Contains(SelectionStart)))
         {
           GroupCell *SelectionEnd = SelectionStart;
-          while (
-            (SelectionEnd->m_next != NULL)
-            && (SelectionEnd->GetNext()->IsLesserGCType(SelectionStart->GetGroupType()))
-            )
+          while ((SelectionEnd->GetNext()) &&
+                 (SelectionEnd->GetNext()->IsLesserGCType(
+                     SelectionStart->GetGroupType())))
             SelectionEnd = SelectionEnd->GetNext();
           m_worksheet->SetActiveCell(NULL);
           m_worksheet->ScrolledAwayFromEvaluation();
@@ -9359,7 +9356,7 @@ void wxMaxima::InsertMenu(wxCommandEvent &event)
       else if((m_worksheet->GetSelectionStart() != NULL)&&
               (m_worksheet->GetSelectionStart()->GetType() == MC_TYPE_GROUP))
       {
-        GroupCell *gc = dynamic_cast<GroupCell *>(m_worksheet->GetSelectionStart());
+        auto *gc = dynamic_cast<GroupCell *>(m_worksheet->GetSelectionStart());
         while(gc != NULL)
         {
           if(gc->GetGroupType() == GC_TYPE_CODE)

@@ -28,7 +28,7 @@
 class DiffCell final : public Cell
 {
 public:
-  DiffCell(GroupCell *parent, Configuration **config);
+  DiffCell(GroupCell *parent, Configuration **config, InitCells init = {});
   DiffCell(const DiffCell &cell);
   Cell *Copy() const override { return new DiffCell(*this); }
 
@@ -36,7 +36,6 @@ public:
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_diffCell); }
 
   void SetBase(Cell *base);
-
   void SetDiff(Cell *diff);
 
   void RecalculateHeight(int fontsize) override;
@@ -57,12 +56,7 @@ public:
 
   wxString ToXML() override;
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_baseCell;
   std::unique_ptr<Cell> m_diffCell;

@@ -28,16 +28,17 @@
 
 #include "SqrtCell.h"
 #include "FontCache.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
 #define SIGN_FONT_SCALE 2.0
 
-SqrtCell::SqrtCell(GroupCell *parent, Configuration **config) :
+SqrtCell::SqrtCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_innerCell(new VisiblyInvalidCell(parent,config)),
     m_open(new TextCell(parent, config, "sqrt(")),
     m_close(new TextCell(parent, config, ")"))
 {
+  if (init.init)
+    SetInner(nullptr);
   m_open->SetStyle(TS_FUNCTION);
   m_signSize = 50;
   m_signWidth = 18;
@@ -54,20 +55,18 @@ SqrtCell::SqrtCell(GroupCell *parent, Configuration **config) :
 // cppcheck-suppress uninitMemberVar symbolName=SqrtCell::m_signTop
 // cppcheck-suppress uninitMemberVar symbolName=SqrtCell::m_signType
 // cppcheck-suppress uninitMemberVar symbolName=SqrtCell::m_signFontScale
-SqrtCell::SqrtCell(const SqrtCell &cell):
-    SqrtCell(cell.m_group, cell.m_configuration)
+SqrtCell::SqrtCell(const SqrtCell &cell)
+    : SqrtCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_innerCell)
-    SetInner(cell.m_innerCell->CopyList());
-  m_isBrokenIntoLines = cell.m_isBrokenIntoLines;
+  SetInner(CopyList(cell.m_innerCell.get()));
+  if (cell.m_isBrokenIntoLines)
+    BreakUp();
 }
 
 void SqrtCell::SetInner(Cell *inner)
 {
-  if (!inner)
-    return;
-  m_innerCell.reset(inner);
+  m_innerCell.reset(InvalidCellOr(inner));
 }
 
 void SqrtCell::RecalculateWidths(int fontsize)
@@ -321,26 +320,20 @@ wxString SqrtCell::ToXML()
 
 bool SqrtCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_open->SetNextToDraw(m_innerCell);
-    m_innerCell->last()->SetNextToDraw(m_close);
-    m_close->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_open;
+  if (m_isBrokenIntoLines)
+    return false;
 
-    ResetData();
-    m_height = 0;
-    m_center = 0;
-    return true;
-  }
-  return false;
+  m_isBrokenIntoLines = true;
+  m_open->SetNextToDraw(m_innerCell);
+  m_innerCell->last()->SetNextToDraw(m_close);
+  m_close->SetNextToDraw(Cell::GetNextToDrawImpl());
+
+  ResetData();
+  m_height = 0;
+  m_center = 0;
+  return true;
 }
 
-void SqrtCell::SetNextToDraw(Cell *next)
-{
-  if(m_isBrokenIntoLines)
-    m_close->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
-}
+void SqrtCell::SetNextToDrawImpl(Cell *next) { m_close->SetNextToDraw(next); }
+
+Cell *SqrtCell::GetNextToDrawImpl() const { return m_open.get(); }

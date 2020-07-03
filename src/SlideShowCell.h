@@ -167,12 +167,7 @@ public:
       return m_images[m_displayed]->GnuplotData();
   }
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override {return m_nextToDraw;}
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   wxTimer m_timer{m_cellPointers->GetWorksheet(), wxNewId()};
   /*! The framerate of this cell.
 

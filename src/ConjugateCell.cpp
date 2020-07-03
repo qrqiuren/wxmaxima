@@ -27,33 +27,31 @@
  */
 
 #include "ConjugateCell.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
-ConjugateCell::ConjugateCell(GroupCell *parent, Configuration **config) :
+ConjugateCell::ConjugateCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_innerCell(new VisiblyInvalidCell(parent,config)),
     m_open(new TextCell(parent, config, "conjugate(")),
     m_close(new TextCell(parent, config, ")"))
 {
+  if (init.init)
+    SetInner(nullptr);
   static_cast<TextCell&>(*m_open).DontEscapeOpeningParenthesis();
 }
 
 // Old cppcheck bugs:
 // cppcheck-suppress uninitMemberVar symbolName=ConjugateCell::m_open
 // cppcheck-suppress uninitMemberVar symbolName=ConjugateCell::m_close
-ConjugateCell::ConjugateCell(const ConjugateCell &cell):
- ConjugateCell(cell.m_group, cell.m_configuration)
+ConjugateCell::ConjugateCell(const ConjugateCell &cell)
+    : ConjugateCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if (cell.m_innerCell)
-    SetInner(cell.m_innerCell->CopyList());
+  SetInner(CopyList(cell.m_innerCell.get()));
 }
 
 void ConjugateCell::SetInner(Cell *inner)
 {
-  if (!inner)
-    return;
-  m_innerCell.reset(inner);
+  m_innerCell.reset(InvalidCellOr(inner));
 }
 
 void ConjugateCell::RecalculateWidths(int fontsize)
@@ -167,25 +165,22 @@ wxString ConjugateCell::ToXML()
 
 bool ConjugateCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_open->SetNextToDraw(m_innerCell);
-    m_innerCell->last()->SetNextToDraw(m_close);
-    m_close->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_open;
-    ResetData();        
-    m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
-    m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
-    return true;
-  }
-  return false;
+  if (m_isBrokenIntoLines)
+    return false;
+
+  m_isBrokenIntoLines = true;
+  m_open->SetNextToDraw(m_innerCell);
+  m_innerCell->last()->SetNextToDraw(m_close);
+  m_close->SetNextToDraw(Cell::GetNextToDrawImpl());
+  ResetData();
+  m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
+  m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
+  return true;
 }
 
-void ConjugateCell::SetNextToDraw(Cell *next)
+void ConjugateCell::SetNextToDrawImpl(Cell *next)
 {
-  if(m_isBrokenIntoLines)
-    m_close->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
+  m_close->SetNextToDraw(next);
 }
+
+Cell *ConjugateCell::GetNextToDrawImpl() const { return m_open.get();  }

@@ -30,7 +30,7 @@
 class SubSupCell final : public Cell
 {
 public:
-  SubSupCell(GroupCell *parent, Configuration **config);
+  SubSupCell(GroupCell *parent, Configuration **config, InitCells init = {});
   SubSupCell(const SubSupCell &cell);
   Cell *Copy() const override { return new SubSupCell(*this); }
 
@@ -38,17 +38,11 @@ public:
   InnerCellIterator InnerEnd() const override { return ++InnerCellIterator(&m_preSupCell); }
 
   void SetBase(Cell *base);
-
   void SetIndex(Cell *index);
-
   void SetExponent(Cell *expt);
-
   void SetPreSub(Cell *index);
-
   void SetPreSup(Cell *index);
-
   void SetPostSub(Cell *index);
-
   void SetPostSup(Cell *index);
   
   void RecalculateHeight(int fontsize) override;
@@ -69,12 +63,7 @@ public:
 
   wxString ToMathML() override;
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_baseCell;
   std::unique_ptr<Cell> m_postSubCell;

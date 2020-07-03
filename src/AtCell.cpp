@@ -28,38 +28,28 @@
 
 #include "AtCell.h"
 #include "TextCell.h"
-#include "VisiblyInvalidCell.h"
 
-AtCell::AtCell(GroupCell *parent, Configuration **config) :
-    Cell(parent, config),
-    m_baseCell (new VisiblyInvalidCell(parent,config)),
-    m_indexCell(new VisiblyInvalidCell(parent,config))
+AtCell::AtCell(GroupCell *parent, Configuration **config, InitCells init)
+    : Cell(parent, config)
 {
+  if (init.init)
+  {
+    SetBase(nullptr);
+    SetIndex(nullptr);
+  }
 }
 
-AtCell::AtCell(const AtCell &cell):
- AtCell(cell.m_group, cell.m_configuration)
+AtCell::AtCell(const AtCell &cell)
+    : AtCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_baseCell)
-    SetBase(cell.m_baseCell->CopyList());
-  if(cell.m_indexCell)
-    SetIndex(cell.m_indexCell->CopyList());
+  SetBase(CopyList(cell.m_baseCell.get()));
+  SetIndex(CopyList(cell.m_indexCell.get()));
 }
 
-void AtCell::SetIndex(Cell *index)
-{
-  if (!index)
-    return;
-  m_indexCell.reset(index);
-}
+void AtCell::SetIndex(Cell *index) { m_indexCell.reset(InvalidCellOr(index)); }
 
-void AtCell::SetBase(Cell *base)
-{
-  if (!base)
-    return;
-  m_baseCell.reset(base);
-}
+void AtCell::SetBase(Cell *base) { m_baseCell.reset(InvalidCellOr(base)); }
 
 void AtCell::RecalculateWidths(int fontsize)
 {

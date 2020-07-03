@@ -117,8 +117,8 @@ class Cell: public Observed
   void operator=(const Cell&) = delete;
   Cell(const Cell&) = delete;
 
-  public:
 
+public:
   /*! The storage for pointers to cells.
     
     If a cell is deleted it is necessary to remove all pointers that might
@@ -339,7 +339,7 @@ class Cell: public Observed
     
     \param p_next The cell that will be appended to the list.
    */
-  void AppendCell(Cell *p_next);
+  void AppendCell(Cell *next);
 
   //! 0 for ordinary cells, 1 for slide shows and diagrams displayed with a 1-pixel border
   int m_imageBorderWidth;
@@ -796,46 +796,66 @@ class Cell: public Observed
     Reads NULL, if this is the last cell of the list. See also m_nextToDraw and 
     m_previous.
    */
-  Cell *m_next;
+  Cell *GetNext() const { return m_next; }
 
-  //! Get the next cell in the list.
-  virtual Cell *GetNext() const {return m_next;}
-  /*! Get the next cell that needs to be drawn
-
-    In case of potential 2d objects like fractions either the fraction needs to be
-    drawn as a single 2D object or the nominator, the cell containing the "/" and 
-    the denominator are pointed to by GetNextToDraw() as single separate objects.
+  /*! Sets the next cell in the list of cells, and returns the old next cell.
+   *
+   * Maintains the doubly linked list invariant i.e. sets old Next()->Previous()
+   * to null, and new Next()->Previous() to this.
+   *
+   * It is the responsibility of the caller to use or free the old next cell.
+   * Override this method in derived classes to e.g. constrain the types
+   * of cells in the list.
    */
-  virtual Cell *GetNextToDraw() const = 0;
+  virtual Cell *SetNext(Cell *);
+
+  /*! Get the next cell that needs to be drawn
+   *
+   * In case of potential 2d objects like fractions either the fraction needs to be
+   * drawn as a single 2D object or the nominator, the cell containing the "/" and
+   * the denominator are pointed to by GetNextToDraw() as single separate objects.
+   *
+   * This function returns the locally held m_nextToDraw when m_isBrokenIntoLines is
+   * false, otherwise it returns the value of GetNextToDrawImpl.
+   */
+  Cell *GetNextToDraw() const;
   
   /*! The previous cell in the list of cells
-    
-    Reads NULL, if this is the first cell of the list. See also 
-    m_nextToDraw and m_next
+   *
+   * Reads NULL, if this is the first cell of the list. See also
+   * NextToDraw() and Next().
    */
-  CellPtr<Cell> m_previous;
+  Cell *GetPrevious() const { return m_previous;  }
+
   /*! Tells this cell which one should be the next cell to be drawn
-
-    If the cell is displayed as 2d object this sets the pointer to the next cell.
-
-    If the cell is broken into lines this sets the pointer of the last of the 
-    list of cells this cell is displayed as.
+   *
+   * If the cell is displayed as 2d object this sets the pointer to the next cell.
+   * If the cell is broken into lines this sets the pointer of the last of the
+   * list of cells this cell is displayed as.
+   *
+   * The derived classes should implement SetNextToDrawImpl() if they wish to
+   * do something with this value.
    */
-  virtual void SetNextToDraw(Cell *next) = 0;
+  void SetNextToDraw(Cell *next);
   template <typename T, typename Del,
             typename std::enable_if<std::is_base_of<Cell, T>::value, bool>::type = true>
   void SetNextToDraw(const std::unique_ptr<T, Del> &ptr) { SetNextToDraw(ptr.get()); }
   template <typename T, typename
                        std::enable_if<std::is_base_of<Cell, T>::value, bool>::type = true>
   void SetNextToDraw(const CellPtr<T> &ptr) { SetNextToDraw(ptr.get()); }
+
   bool m_bigSkip;
+
   /*! true means:  This cell is broken into two or more lines.
     
     Long abs(), conjugate(), fraction and similar cells can be displayed as 2D objects,
     but will be displayed in their linear form (and therefore broken into lines) if they
     end up to be wider than the screen. In this case m_isBrokenIntoLines is true.
+
+    This value affects the behavior of GetNextToDraw().
    */
   bool m_isBrokenIntoLines;
+
   /*! True means: This cell is not to be drawn.
 
     Currently the following items fall into this category:
@@ -993,7 +1013,34 @@ class Cell: public Observed
   wxPoint GetCurrentPoint() const {return m_currentPoint;}
   bool ContainsToolTip() const { return m_containsToolTip; }
 
+  static Cell *CopyList(Cell *cell);
+  static GroupCell *CopyList(GroupCell *cell);
+
 protected:
+  //! An internal wrapper that can be used to control initialization of derived
+  //! classes. It is only accessible internally.
+  struct InitCells {
+    bool init;
+    InitCells(bool init = true) : init(init) {}
+  };
+
+  /*! Returns the inner cell to be drawn.
+   *
+   * Should be reimplemented in cells that expose inner cells
+   * when they are broken into lines.
+   */
+  virtual Cell *GetNextToDrawImpl() const { return m_nextToDraw; }
+  /*! Sets the next cell to be drawn after the internal cell(s).
+   *
+   * Should be reimplemented in cells that expose inner cells
+   * when they are broken into lines.
+   */
+  virtual void SetNextToDrawImpl(Cell *) {}
+
+  Cell *MakeVisiblyInvalidCell() const;
+  Cell *InvalidCellOr(Cell *cell) const;
+  std::unique_ptr<Cell> InvalidCellOr(std::unique_ptr<Cell> &&cell) const;
+
   //! true, if this cell clearly needs recalculation
   bool m_recalculateWidths; 
   bool m_recalculate_maxCenter;
@@ -1134,8 +1181,20 @@ protected:
 private:
   //! The client width at the time of the last recalculation.
   int m_clientWidth_old;
+  //! The next cell in the list
+  Cell *m_next;
+  //! The previous cell in the list
+  CellPtr<Cell> m_previous;
+  //! The default next cell to draw
+  CellPtr<Cell> m_nextToDraw;
 
   CellPointers *GetCellPointers() const;
 };
+
+inline Cell *GetNext(Cell *cell) { return cell ? cell->GetNext() : nullptr; }
+inline Cell *GetPrevious(Cell *cell) { return cell ? cell->GetPrevious() : nullptr; }
+
+inline GroupCell *GetNext(GroupCell *);
+inline GroupCell *GetPrevious(GroupCell *);
 
 #endif // MATHCELL_H

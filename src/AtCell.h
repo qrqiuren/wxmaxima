@@ -28,7 +28,7 @@
 class AtCell final : public Cell
 {
 public:
-  AtCell(GroupCell *parent, Configuration **config);
+  AtCell(GroupCell *parent, Configuration **config, InitCells init = {});
   AtCell(const AtCell &cell);
   Cell *Copy() const override { return new AtCell(*this); }
 
@@ -56,12 +56,7 @@ public:
 
   wxString ToMathML() override;
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_baseCell;
   std::unique_ptr<Cell> m_indexCell;

@@ -30,41 +30,33 @@
 #include "GroupCell.h"
 #include "TextCell.h"
 #include "wx/config.h"
-#include "VisiblyInvalidCell.h"
 
 
-DiffCell::DiffCell(GroupCell *parent, Configuration **config) :
-    Cell(parent, config),
-    m_baseCell(new VisiblyInvalidCell(parent,config)),
-    m_diffCell(new VisiblyInvalidCell(parent,config))
+DiffCell::DiffCell(GroupCell *parent, Configuration **config, InitCells init) :
+    Cell(parent, config)
 {
+  if (init.init)
+  {
+    SetBase(nullptr);
+    SetDiff(nullptr);
+  }
 }
 
-DiffCell::DiffCell(const DiffCell &cell):
- DiffCell(cell.m_group, cell.m_configuration)
+DiffCell::DiffCell(const DiffCell &cell)
+    : DiffCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_diffCell)
-    SetDiff(cell.m_diffCell->CopyList());
-  if(cell.m_baseCell)
-    SetBase(cell.m_baseCell->CopyList());
+  SetDiff(CopyList(cell.m_diffCell.get()));
+  SetBase(CopyList(cell.m_baseCell.get()));
 }
 
 void DiffCell::SetDiff(Cell *diff)
 {
-  if (!diff)
-    return;
-  m_diffCell.reset(diff);
-
+  m_diffCell.reset(InvalidCellOr(diff));
   m_diffCell->m_SuppressMultiplicationDot = true;
 }
 
-void DiffCell::SetBase(Cell *base)
-{
-  if (!base)
-    return;
-  m_baseCell.reset(base);
-}
+void DiffCell::SetBase(Cell *base) { m_baseCell.reset(InvalidCellOr(base)); }
 
 void DiffCell::RecalculateWidths(int fontsize)
 {
@@ -118,7 +110,7 @@ wxString DiffCell::ToString()
 {
   if (m_isBrokenIntoLines)
     return wxEmptyString;
-  Cell *tmp = m_baseCell->m_next;
+  Cell *tmp = m_baseCell->GetNext();
   wxString s = wxT("'diff(");
   if (tmp != NULL)
     s += tmp->ListToString();
@@ -131,7 +123,7 @@ wxString DiffCell::ToMatlab()
 {
   if (m_isBrokenIntoLines)
 	return wxEmptyString;
-  Cell *tmp = m_baseCell->m_next;
+  Cell *tmp = m_baseCell->GetNext();
   wxString s = wxT("'diff(");
   if (tmp != NULL)
 	s += tmp->ListToMatlab();

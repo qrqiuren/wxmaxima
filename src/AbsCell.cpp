@@ -29,14 +29,15 @@
 
 
 #include "AbsCell.h"
-#include "VisiblyInvalidCell.h"
+#include "TextCell.h"
 
-AbsCell::AbsCell(GroupCell *parent, Configuration **config) :
+AbsCell::AbsCell(GroupCell *parent, Configuration **config, InitCells init) :
     Cell(parent, config),
-    m_innerCell(new VisiblyInvalidCell(parent,config)),
     m_open(new TextCell(parent, config, wxT("abs("))),
     m_close(new TextCell(parent, config, wxT(")")))
 {
+  if (init.init)
+    SetInner(nullptr);
   static_cast<TextCell&>(*m_open).DontEscapeOpeningParenthesis();
   m_open->SetStyle(TS_FUNCTION);
 }
@@ -44,20 +45,14 @@ AbsCell::AbsCell(GroupCell *parent, Configuration **config) :
 // Old cppcheck bugs:
 // cppcheck-suppress uninitMemberVar symbolName=AbsCell::m_open
 // cppcheck-suppress uninitMemberVar symbolName=AbsCell::m_close
-AbsCell::AbsCell(const AbsCell &cell):
-  AbsCell(cell.m_group, cell.m_configuration)
+AbsCell::AbsCell(const AbsCell &cell)
+    : AbsCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_innerCell)
-    SetInner(cell.m_innerCell->CopyList());
+  SetInner(CopyList(cell.m_innerCell.get()));
 }
 
-void AbsCell::SetInner(Cell *inner)
-{
-  if (!inner)
-    return;
-  m_innerCell.reset(inner);
-}
+void AbsCell::SetInner(Cell *inner) { m_innerCell.reset(InvalidCellOr(inner)); }
 
 void AbsCell::RecalculateWidths(int fontsize)
 {
@@ -174,26 +169,22 @@ wxString AbsCell::ToXML()
 
 bool AbsCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_open->SetNextToDraw(m_innerCell);
-    m_innerCell->last()->SetNextToDraw(m_close);
-    m_close->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_open;
-    ResetData();    
-    m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
-    m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
+  if (m_isBrokenIntoLines)
+    return false;
 
-    return true;
-  }
-  return false;
+  m_isBrokenIntoLines = true;
+  m_open->SetNextToDraw(m_innerCell);
+  m_innerCell->last()->SetNextToDraw(m_close);
+  m_close->SetNextToDraw(Cell::GetNextToDrawImpl());
+  ResetData();
+  m_height = wxMax(m_innerCell->GetHeightList(), m_open->GetHeightList());
+  m_center = wxMax(m_innerCell->GetCenterList(), m_open->GetCenterList());
+  return true;
 }
 
-void AbsCell::SetNextToDraw(Cell *next)
+void AbsCell::SetNextToDrawImpl(Cell *next)
 {
-  if(m_isBrokenIntoLines)
-    m_close->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
+  m_close->SetNextToDraw(next);
 }
+
+Cell *AbsCell::GetNextToDrawImpl() const { return m_open.get(); }

@@ -24,7 +24,6 @@
 #define EXPTCELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
 
 /*!\file
 
@@ -48,7 +47,7 @@
 class ExptCell final : public Cell
 {
 public:
-  ExptCell(GroupCell *parent, Configuration **config);
+  ExptCell(GroupCell *parent, Configuration **config, InitCells init = {});
   ExptCell(const ExptCell &cell);
   Cell *Copy() const override { return new ExptCell(*this); }
 
@@ -88,12 +87,10 @@ public:
 
   bool BreakUp() override;
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_baseCell;
   std::unique_ptr<Cell> m_exptCell;

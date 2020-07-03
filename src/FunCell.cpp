@@ -27,39 +27,34 @@
  */
 
 #include "FunCell.h"
-#include "TextCell.h"
-#include "VisiblyInvalidCell.h"
 
-FunCell::FunCell(GroupCell *parent, Configuration **config) :
-  Cell(parent, config),
-  m_nameCell(new VisiblyInvalidCell(parent,config)),
-  m_argCell(new VisiblyInvalidCell(parent,config))
+FunCell::FunCell(GroupCell *parent, Configuration **config, InitCells init)
+    : Cell(parent, config)
 {
+  if (init.init)
+  {
+    SetName(nullptr);
+    SetArg(nullptr);
+  }
 }
 
-FunCell::FunCell(const FunCell &cell):
- FunCell(cell.m_group, cell.m_configuration)
+FunCell::FunCell(const FunCell &cell)
+    : FunCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_nameCell)
-    SetName(cell.m_nameCell->CopyList());
-  if(cell.m_argCell)
-    SetArg(cell.m_argCell->CopyList());
+  SetName(CopyList(cell.m_nameCell.get()));
+  SetArg(CopyList(cell.m_argCell.get()));
 }
 
 void FunCell::SetName(Cell *name)
 {
-  if (!name)
-    return;
-  m_nameCell.reset(name);
-  name->SetStyle(TS_FUNCTION);
+  m_nameCell.reset(InvalidCellOr(name));
+  m_nameCell->SetStyle(TS_FUNCTION);
 }
 
 void FunCell::SetArg(Cell *arg)
-{  
-  if (!arg)
-    return;
-  m_argCell.reset(arg);
+{
+  m_argCell.reset(InvalidCellOr(arg));
 }
 
 void FunCell::RecalculateWidths(int fontsize)
@@ -178,23 +173,19 @@ wxString FunCell::ToOMML()
 
 bool FunCell::BreakUp()
 {
-  if (!m_isBrokenIntoLines)
-  {
-    m_isBrokenIntoLines = true;
-    m_nameCell->last()->SetNextToDraw(m_argCell);
-    m_argCell->last()->SetNextToDraw(m_nextToDraw);
-    m_nextToDraw = m_nameCell;
-    m_width = 0;
-    ResetData();    
-    return true;
-  }
-  return false;
+  if (m_isBrokenIntoLines)
+    return false;
+
+  m_isBrokenIntoLines = true;
+  m_nameCell->last()->SetNextToDraw(m_argCell);
+  m_argCell->last()->SetNextToDraw(Cell::GetNextToDrawImpl());
+  m_width = 0;
+  ResetData();
+  return true;
 }
 
-void FunCell::SetNextToDraw(Cell *next)
-{
-  if(m_isBrokenIntoLines)
-    m_argCell->last()->SetNextToDraw(next);
-  else
-    m_nextToDraw = next;
+void FunCell::SetNextToDrawImpl(Cell *next) {
+  m_argCell->last()->SetNextToDraw(next);
 }
+
+Cell *FunCell::GetNextToDrawImpl() const { return m_nameCell.get(); }

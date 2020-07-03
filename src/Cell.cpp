@@ -30,6 +30,7 @@
 #include "Cell.h"
 #include "GroupCell.h"
 #include "TextCell.h"
+#include "VisiblyInvalidCell.h"
 #include <wx/regex.h>
 #include <wx/sstream.h>
 #include <wx/xml/xml.h>
@@ -270,26 +271,24 @@ void Cell::FontsChangedList()
 /***
  * Append new cell to the end of this list.
  */
-void Cell::AppendCell(Cell *p_next)
+void Cell::AppendCell(Cell *next)
 {
-  if (p_next == NULL)
+  if (!next)
     return;
-  if(m_group)
+  if (m_group)
     GetGroup()->ResetData();
 
-  Cell *LastInList = last();
+  // Append next to the list
+  Cell *const last = this->last();
+  last->SetNext(next);
 
-  // Append this p_next to the list
-  LastInList->m_next = p_next;
-  LastInList->m_next->m_previous = LastInList;
-  
-  // Search the last cell in the list that is sorted by the drawing order
-  Cell *LastToDraw = LastInList;
-  while (LastToDraw->GetNextToDraw() != NULL)
-    LastToDraw = LastToDraw->GetNextToDraw();
+  // TODO This should be handled by overrides of SetNext, probably.
+  // Append next to the draw list
+  Cell *lastToDraw = last;
+  while (lastToDraw->GetNextToDraw())
+    lastToDraw = lastToDraw->GetNextToDraw();
 
-  // Append p_next to this list.
-  LastToDraw->SetNextToDraw(p_next);
+  lastToDraw->SetNextToDraw(last->GetNext());
 }
 
 GroupCell *Cell::GetGroup() const
@@ -307,15 +306,13 @@ int Cell::GetCenterList()
   if (m_recalculate_maxCenter || ((*m_configuration)->RecalculationForce()))
   {
     m_recalculate_maxCenter = false;
-    Cell *tmp = this;
     m_maxCenter  = 0;
-    while (tmp != NULL)
+    for (auto *tmp = this; tmp; tmp = tmp->GetNextToDraw())
     {
       if ((tmp != this) && (tmp->m_breakLine))
         break;
       if(!tmp->m_isBrokenIntoLines)
         m_maxCenter = wxMax(m_maxCenter, tmp->m_center);
-      tmp = tmp->GetNextToDraw();
     }
   }
   return m_maxCenter;
@@ -466,6 +463,27 @@ void Cell::AddToolTip(const wxString &tip)
   m_containsToolTip = true;
   m_group->m_containsToolTip = true;
 }
+
+Cell *Cell::CopyList(Cell *cell) { return cell ? cell->CopyList() : nullptr; }
+
+GroupCell *Cell::CopyList(GroupCell *cell) {
+  return cell ? cell->CopyList() : nullptr;
+}
+
+Cell *Cell::MakeVisiblyInvalidCell() const {
+  return new VisiblyInvalidCell(m_group, m_configuration);
+}
+
+Cell *Cell::InvalidCellOr(Cell *cell) const {
+  return cell ? cell : MakeVisiblyInvalidCell();
+}
+
+std::unique_ptr<Cell> Cell::InvalidCellOr(std::unique_ptr<Cell> &&cell) const
+{
+  return cell ? std::move(cell)
+              : std::unique_ptr<Cell>(MakeVisiblyInvalidCell());
+}
+
 void Cell::DrawList(wxPoint point)
 {
   Cell *tmp = this;
@@ -1207,6 +1225,32 @@ void Cell::UnbreakList()
 {
   for(Cell *tmp = this; tmp != NULL; tmp = tmp->m_next)
     tmp->Unbreak();
+}
+
+Cell *Cell::SetNext(Cell *cell) {
+  wxASSERT(!cell || !cell->m_previous);
+
+  auto *oldNext = m_next;
+  m_next = nullptr;
+  if (oldNext)
+    oldNext->m_previous = nullptr;
+
+  m_next = cell;
+  if (m_next)
+    m_next->m_previous = this;
+
+  return oldNext;
+}
+
+Cell *Cell::GetNextToDraw() const
+{
+  return m_isBrokenIntoLines ? m_nextToDraw : GetNextToDrawImpl();
+}
+
+void Cell::SetNextToDraw(Cell *next)
+{
+  SetNextToDrawImpl(next);
+  m_nextToDraw = next;
 }
 
 // cppcheck-suppress functionStatic

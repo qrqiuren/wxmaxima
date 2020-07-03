@@ -24,7 +24,6 @@
 #define SQRTCELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
 
 /*! \file
 
@@ -48,7 +47,7 @@
 class SqrtCell final : public Cell
 {
 public:
-  SqrtCell(GroupCell *parent, Configuration **config);
+  SqrtCell(GroupCell *parent, Configuration **config, InitCells init = {});
   SqrtCell(const SqrtCell &cell);
   Cell *Copy() const override { return new SqrtCell(*this); }
 
@@ -77,13 +76,10 @@ public:
 
   wxString ToXML() override;
 
-  void SetNextToDraw(Cell *next) override;
-
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_innerCell;
   std::unique_ptr<Cell> m_open;

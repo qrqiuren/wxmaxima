@@ -31,29 +31,25 @@
 #include "TextCell.h"
 #include <wx/config.h>
 #include "wx/config.h"
-#include "VisiblyInvalidCell.h"
 
 #define SUBSUP_DEC 3
 
-SubSupCell::SubSupCell(GroupCell *parent, Configuration **config) :
-  Cell(parent, config),
-  m_baseCell(new VisiblyInvalidCell(parent,config))
-{}
+SubSupCell::SubSupCell(GroupCell *parent, Configuration **config, InitCells init)
+    : Cell(parent, config)
+{
+  if (init.init)
+    SetBase(nullptr);
+}
 
-SubSupCell::SubSupCell(const SubSupCell &cell):
-    SubSupCell(cell.m_group, cell.m_configuration)
+SubSupCell::SubSupCell(const SubSupCell &cell)
+    : SubSupCell(cell.m_group, cell.m_configuration, { false })
 {
   CopyCommonData(cell);
-  if(cell.m_baseCell)
-    SetBase(cell.m_baseCell->CopyList());
-  if(cell.m_postSubCell)
-    SetIndex(cell.m_postSubCell->CopyList());
-  if(cell.m_postSupCell)
-    SetExponent(cell.m_postSupCell->CopyList());
-  if(cell.m_preSubCell)
-    SetPreSub(cell.m_preSubCell->CopyList());
-  if(cell.m_preSupCell)
-    SetPreSup(cell.m_preSupCell->CopyList());
+  SetBase(CopyList(cell.m_baseCell.get()));
+  SetIndex(CopyList(cell.m_postSubCell.get()));
+  SetExponent(CopyList(cell.m_postSupCell.get()));
+  SetPreSub(CopyList(cell.m_preSubCell.get()));
+  SetPreSup(CopyList(cell.m_preSupCell.get()));
 }
 
 static void RemoveCell(std::vector<CellPtr<Cell>> &cells, std::unique_ptr<Cell> const &cell)
@@ -108,9 +104,7 @@ void SubSupCell::SetIndex(Cell *index)
 
 void SubSupCell::SetBase(Cell *base)
 {
-  if (!base)
-    return;
-  m_baseCell.reset(base);
+  m_baseCell.reset(InvalidCellOr(base));
 }
 
 void SubSupCell::SetExponent(Cell *expt)

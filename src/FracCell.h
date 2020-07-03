@@ -30,8 +30,8 @@
 #define FRACCELL_H
 
 #include "Cell.h"
-#include "TextCell.h"
-#include "ParenCell.h"
+
+class ParenCell;
 
 /* This class represents fractions.
 
@@ -43,7 +43,7 @@
 class FracCell final : public Cell
 {
 public:
-  FracCell(GroupCell *parent, Configuration **config);
+  FracCell(GroupCell *parent, Configuration **config, InitCells init = {});
   FracCell(const FracCell &cell);
   Cell *Copy() const override { return new FracCell(*this); }
 
@@ -94,16 +94,14 @@ public:
 
   void SetupBreakUps();
 
-  void SetNextToDraw(Cell *next) override;
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
+  void SetNextToDrawImpl(Cell *next) override;
+  Cell *GetNextToDrawImpl() const override;
 
 private:
-  CellPtr<Cell> m_nextToDraw;
-
   //! The numerator
-  Cell *Num() const { return m_numParenthesis->GetInner(); }
+  Cell *Num() const;
   //! The denominator
-  Cell *Denom() const { return m_denomParenthesis->GetInner(); }
+  Cell *Denom() const;
 
   //! A parenthesis around the numerator, owns the numerator
   std::unique_ptr<ParenCell> const m_numParenthesis;

@@ -33,7 +33,6 @@
 
 #include "precomp.h"
 #include "Cell.h"
-#include "ParenCell.h"
 
 enum
 {
@@ -41,10 +40,12 @@ enum
   SM_PROD
 };
 
+class ParenCell;
+
 class SumCell final : public Cell
 {
 public:
-  SumCell(GroupCell *parent, Configuration **config);
+  SumCell(GroupCell *parent, Configuration **config, InitCells init = {});
   SumCell(const SumCell &cell);
   Cell *Copy() const override { return new SumCell(*this); }
 
@@ -57,11 +58,8 @@ public:
   void Draw(wxPoint point) override;
 
   void SetBase(Cell *base);
-
   void SetUnder(Cell *under);
-
   void SetOver(Cell *over);
-
   void SetSumStyle(int style) { m_sumStyle = style; }
 
   wxString ToString() override;
@@ -76,15 +74,10 @@ public:
 
   wxString ToOMML() override;
 
-  void SetNextToDraw(Cell *next) override { m_nextToDraw = next; }
-  Cell *GetNextToDraw() const override { return m_nextToDraw; }
-
 private:
-  CellPtr<Cell> m_nextToDraw;
-  
-  ParenCell *Paren() const { return static_cast<ParenCell*>(m_paren.get()); }
+  ParenCell *Paren() const;
   // The base cell is owned by the paren
-  Cell *Base() const { return Paren() ? Paren()->GetInner() : nullptr; }
+  Cell *Base() const;
   // The pointers below point to inner cells and must be kept contiguous.
   std::unique_ptr<Cell> m_under;
   std::unique_ptr<Cell> m_over;
