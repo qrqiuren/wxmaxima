@@ -22,6 +22,7 @@
 #ifndef FONTCACHE_H
 #define FONTCACHE_H
 
+#include "precomp.h"
 #include "TextStyle.h"
 #include <wx/font.h>
 #include <functional>

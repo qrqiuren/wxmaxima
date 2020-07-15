@@ -30,6 +30,7 @@
 #ifndef HISTORY_H
 #define HISTORY_H
 
+#include "precomp.h"
 #include "LoggingMessageDialog.h"
 #include <wx/wx.h>
 #include <wx/regex.h>
