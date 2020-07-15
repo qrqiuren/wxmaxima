@@ -29,7 +29,6 @@
 #ifndef DIRSTRUCTURE_H
 #define DIRSTRUCTURE_H
 
-#include "precomp.h"
 #include <wx/wx.h>
 #include <wx/string.h>
 #include <wx/stdpaths.h>

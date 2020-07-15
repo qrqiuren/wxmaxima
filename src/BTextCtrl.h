@@ -22,7 +22,6 @@
 #ifndef BTEXTCTRL_H
 #define BTEXTCTRL_H
 
-#include "precomp.h"
 #include <wx/wx.h>
 #include "Configuration.h"
 

@@ -27,7 +27,6 @@
 #ifndef DRAWWIZ_H
 #define DRAWWIZ_H
 
-#include "precomp.h"
 #include <wx/wx.h>
 #include <wx/statline.h>
 #include <wx/image.h>

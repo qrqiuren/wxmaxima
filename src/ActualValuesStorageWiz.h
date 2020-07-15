@@ -22,7 +22,6 @@
 #ifndef ACTUALVALUESSTORAGEWIZ_H
 #define ACTUALVALUESSTORAGEWIZ_H
 
-#include "precomp.h"
 #include <wx/wx.h>
 #include <wx/grid.h>
 #include <wx/statline.h>

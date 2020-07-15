@@ -22,7 +22,6 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-#include "precomp.h"
 #include <wx/wx.h>
 #include <wx/config.h>
 #include <wx/display.h>

@@ -23,7 +23,6 @@
 #ifndef EMFOUT_H
 #define EMFOUT_H
 
-#include "precomp.h"
 #include "OutCommon.h"
 
 #if wxUSE_ENH_METAFILE

@@ -29,7 +29,6 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#include "precomp.h"
 #include "Cell.h"
 #include "Version.h"
 #include <wx/image.h>
