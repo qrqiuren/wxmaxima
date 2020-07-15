@@ -28,11 +28,13 @@ environment:
     # is of use outside of CI, then it should be added to CMakeLists.txt
     # instead - see the Compiler-Specific Tweaks section there.
 
-  - TOOLKIT: MSVC
+  - job_name: MSVC
+    TOOLKIT: MSVC
     TOOLKIT_INIT: ".appveyor\\MSVC_2019_x64.ps1"
     WXW_LIB: vc_x64_lib
 
-  - TOOLKIT: MinGW
+  - job_name: MinGW
+    TOOLKIT: MinGW
     TOOLKIT_INIT: ".appveyor\\MINGW_8.1.0_x64.ps1"
     WXW_LIB: gcc_x64_lib
 
