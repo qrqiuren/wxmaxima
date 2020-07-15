@@ -27,4 +27,5 @@
 #include <wx/panel.h>
 #include <wx/textctrl.h>
 #include <wx/checkbox.h>
+#include "Cell.h"
 #endif
