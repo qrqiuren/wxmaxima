@@ -40,11 +40,9 @@ environment:
 
 matrix:
   exclude:
-    - image: Visual Studio 2019
-      TOOLKIT: MinGW
+    - job_name: MinGW
 
-    - image: Visual Studio 2015
-      TOOLKIT: MSVC
+    - job_name: MSVC
 
 cache:
   - 'C:\wxwidgets-install_%WXBUILDVER%'
@@ -172,7 +170,7 @@ for:
   -
     matrix:
       only:
-        - TOOLKIT: MinGW
+        - job_name: MinGW
     deploy:
       - provider: Environment
         name: GithubReleases
