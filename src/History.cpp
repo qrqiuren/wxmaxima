@@ -97,9 +97,14 @@ void History::OnMouseRightDown(wxMouseEvent &event)
       popupMenu.Append(export_selected, _("Export selected commands to a .mac file"));
     if(m_history->GetCount() > 0)
       popupMenu.Append(export_visible, _("Export visible commands to a .mac file"));
+    if(popupMenu.GetMenuItemCount() > 0)
+      popupMenu.AppendSeparator();
     if (hasSelections)
       popupMenu.Append(clear_selection, _("Clear the selection"));
+    popupMenu.Append(clear_history, _("Clear all history"));    
   }
+  if(popupMenu.GetMenuItemCount() > 0)
+    popupMenu.AppendSeparator();
   popupMenu.AppendCheckItem(toggle_ShowCurrentSessionOnly, _("Show commands from current session only")); 
   popupMenu.Check(toggle_ShowCurrentSessionOnly, m_showCurrentSessionOnly);
   PopupMenu(&popupMenu);
@@ -213,6 +218,11 @@ void History::OnMenu(wxCommandEvent &event)
     }
   break;
   }
+  case clear_history:
+    m_history->Clear();
+    m_commands.Clear();
+    m_sessionCommands = 0;
+    break;
   case clear_selection:
     m_history->DeselectAll();
     break;

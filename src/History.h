@@ -44,7 +44,8 @@ enum
   export_visible,
   export_selected,
   toggle_ShowCurrentSessionOnly,
-  clear_selection
+  clear_selection,
+  clear_history
 };
 
 /*! This class generates a pane containing the last commands that were issued.
