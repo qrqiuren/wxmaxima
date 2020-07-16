@@ -46,7 +46,6 @@ matrix:
 
 cache:
   - 'C:\wxwidgets-install_%WXBUILDVER%'
-  - 'C:\wxwidgets-build_%WXBUILDVER%'
   # The build directory is only cached for the .pdb files. Other files are removed.
   # - C:\ProgramData\chocolatey\bin -> appveyor.yml
   # - C:\ProgramData\chocolatey\lib -> appveyor.yml
