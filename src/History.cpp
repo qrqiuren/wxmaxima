@@ -34,6 +34,7 @@
 #include <wx/filedlg.h>
 #include <wx/wfstream.h>
 #include <wx/txtstrm.h>
+#include <wx/config.h>
 #include <algorithm>
 #include <memory>
 #include <wx/wupdlock.h>
@@ -47,6 +48,9 @@ static wxString RegexTooltip_norm;
 
 History::History(wxWindow *parent, int id) : wxPanel(parent, id)
 {
+  m_showCurrentSessionOnly = true;
+  wxConfig::Get()->Read(m_showCurrentSessionOnlyKey, &m_showCurrentSessionOnly);
+
 #ifdef __WXX11__
   m_realtimeUpdate = false;
 #endif
@@ -80,25 +84,24 @@ History::History(wxWindow *parent, int id) : wxPanel(parent, id)
 
 void History::OnMouseRightDown(wxMouseEvent &event)
 {
-  if(m_commands.GetCount() == 0)
-  {
-    event.Skip();
-    return;
-  }
   wxArrayInt selections;
   bool const hasSelections = (m_history->GetSelections(selections) > 0);
   wxString number;
 
   wxMenu popupMenu;
-  popupMenu.Append(export_all, _("Export all history to a .mac file"));
-  popupMenu.Append(export_session, _("Export commands from the current maxima session to a .mac file"));
-  if (hasSelections)
-    popupMenu.Append(export_selected, _("Export selected commands to a .mac file"));
-  if(m_history->GetCount() > 0)
-    popupMenu.Append(export_visible, _("Export visible commands to a .mac file"));
-  if (hasSelections)
-    popupMenu.Append(clear_selection, _("Clear the selection"));
-  
+  if(m_commands.GetCount() > 0)
+  {
+    popupMenu.Append(export_all, _("Export all history to a .mac file"));
+    popupMenu.Append(export_session, _("Export commands from the current maxima session to a .mac file"));
+    if (hasSelections)
+      popupMenu.Append(export_selected, _("Export selected commands to a .mac file"));
+    if(m_history->GetCount() > 0)
+      popupMenu.Append(export_visible, _("Export visible commands to a .mac file"));
+    if (hasSelections)
+      popupMenu.Append(clear_selection, _("Clear the selection"));
+  }
+  popupMenu.AppendCheckItem(toggle_ShowCurrentSessionOnly, _("Show commands from current session only")); 
+  popupMenu.Check(toggle_ShowCurrentSessionOnly, m_showCurrentSessionOnly);
   PopupMenu(&popupMenu);
 }
 
@@ -107,6 +110,8 @@ void History::MaximaSessionStart()
   if(m_commands.GetCount() != 0)
     AddToHistory(wxT("quit();"));
   m_sessionCommands = -1;
+  if(m_showCurrentSessionOnly)
+    m_history->Clear();
 }
 
 void History::OnInternalIdle()
@@ -147,6 +152,11 @@ void History::OnMenu(wxCommandEvent &event)
 
   switch (event.GetId())
   {
+  case toggle_ShowCurrentSessionOnly:
+    m_showCurrentSessionOnly = !m_showCurrentSessionOnly;
+    wxConfig::Get()->Write(m_showCurrentSessionOnlyKey, m_showCurrentSessionOnly);
+    RebuildDisplay();
+    break;
   case export_selected:
   {
     wxArrayInt selections;
@@ -243,16 +253,27 @@ void History::RebuildDisplay()
 {
   wxWindowUpdateLocker speedUp(this);
   wxArrayString display;
+  wxString cmd;
+  wxArrayString::reverse_iterator sessionEnd;
+  if(m_showCurrentSessionOnly)
+  {
+    sessionEnd = m_commands.rend();
+    for(auto i = m_sessionCommands; i > 0 ;i--)
+      --sessionEnd;
+  }
+  else
+    sessionEnd = m_commands.rend();
+  display.reserve(m_commands.size());
   if (m_matcherExpr.empty())
   {
-    display = m_commands;
-    std::reverse(display.begin(), display.end());
+    for (wxArrayString::reverse_iterator cmd = m_commands.rbegin(); cmd != sessionEnd; ++cmd)
+      display.Add(*cmd);
   }
   else
   {
     wxASSERT(m_matcher.IsValid());
     display.reserve(m_commands.size());
-    for (auto cmd = m_commands.rbegin(); cmd != m_commands.rend(); ++cmd)
+    for (wxArrayString::reverse_iterator cmd = m_commands.rbegin(); cmd != sessionEnd; ++cmd)
     {
       if (m_matcher.Matches(*cmd))
         display.Add(*cmd);
@@ -341,3 +362,5 @@ void History::SetCurrent(long current)
   UnselectAll();
   m_history->SetSelection(m_current);
 }
+
+wxString History::m_showCurrentSessionOnlyKey(wxT("history/ShowCurrentSessionOnly"));
