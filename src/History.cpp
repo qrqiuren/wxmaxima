@@ -114,7 +114,7 @@ void History::MaximaSessionStart()
 {
   if(m_commands.GetCount() != 0)
     AddToHistory(wxT("quit();"));
-  m_sessionCommands = -1;
+  m_sessionCommands = 0;
   if(m_showCurrentSessionOnly)
     m_history->Clear();
 }
@@ -183,7 +183,7 @@ void History::OnMenu(wxCommandEvent &event)
     break;
   }
   case export_session:
-    start = size - m_sessionCommands - 1;
+    start = size - m_sessionCommands;
     //fallthrough
     
   case export_all:
@@ -268,7 +268,7 @@ void History::RebuildDisplay()
   if(m_showCurrentSessionOnly)
   {
     sessionEnd = m_commands.rbegin();
-    for(auto i = m_sessionCommands; i >= 0 ;i--)
+    for(auto i = 0; i< m_sessionCommands; i++)
       ++sessionEnd;
   }
   else
