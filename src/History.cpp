@@ -265,14 +265,12 @@ void History::RebuildDisplay()
   wxArrayString display;
   wxString cmd;
   wxArrayString::reverse_iterator sessionEnd;
+  sessionEnd = m_commands.rend();
   if(m_showCurrentSessionOnly)
   {
-    sessionEnd = m_commands.rend();
     for(auto i = m_sessionCommands; i > 0 ;i--)
       --sessionEnd;
   }
-  else
-    sessionEnd = m_commands.rend();
   display.reserve(m_commands.size());
   if (m_matcherExpr.empty())
   {
