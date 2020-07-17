@@ -161,11 +161,12 @@ after_test:
 #      Push-AppveyorArtifact FailureDump.zip
 #      popd
 
-artifacts:
+for:
   -
     matrix:
       only:
         - job_name: MinGW
+    artifacts:
     - path: 'wxMaxima.exe.7z'
       name: wxMaxima.exe
 
