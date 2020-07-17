@@ -4416,7 +4416,7 @@ void wxMaxima::OnIdle(wxIdleEvent &event)
 
   if((m_xmlInspector != NULL) && (m_xmlInspector->UpdateNeeded()))
   {
-    m_xmlInspector->Update();
+    m_xmlInspector->UpdateContents();
     event.RequestMore();
     return;
   }
