@@ -170,7 +170,6 @@ for:
     - path: 'wxMaxima.exe.7z'
       name: wxMaxima.exe
 
-for:
   -
     matrix:
       only:
