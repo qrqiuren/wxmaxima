@@ -151,7 +151,7 @@ after_test:
       if (! $?) { throw "CPack failed with exit code $LastExitCode" }
       popd
       echo '* Compressing the executable'
-      7z a wxMaxima.exe.zip build/src/*.exe
+      7z a wxMaxima.exe.7z build/src/*.exe
 
 
 on_failure:
@@ -161,11 +161,13 @@ on_failure:
       Push-AppveyorArtifact FailureDump.zip
       popd
 
-#artifacts:
-#  - path: 'build\*.exe'
-#    name: wxMaxima_Installer
-#  - path: 'wxMaxima.exe.zip'
-#    name: wxMaxima
+artifacts:
+  -
+    matrix:
+      only:
+        - job_name: MinGW
+    - path: 'wxMaxima.exe.7z'
+      name: wxMaxima.exe
 
 for:
   -
