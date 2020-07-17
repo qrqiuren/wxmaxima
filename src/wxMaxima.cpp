@@ -2180,9 +2180,8 @@ void wxMaxima::OnProcessEvent(wxProcessEvent& event)
     m_worksheet->m_evaluationQueue.Clear();
   }
   StatusMaximaBusy(disconnected);
-  wxUpdateUIEvent dummy;
-  UpdateToolBar(dummy);
-  UpdateMenus(dummy);
+  UpdateToolBar();
+  UpdateMenus();
 }
 
 ///--------------------------------------------------------------------------------
@@ -4372,10 +4371,9 @@ void wxMaxima::OnIdle(wxIdleEvent &event)
   if (m_updateControls)
   {
     m_updateControls = false;
-    wxUpdateUIEvent dummy;
-    UpdateMenus(dummy);
-    UpdateToolBar(dummy);
-    UpdateSlider(dummy);
+    UpdateMenus();
+    UpdateToolBar();
+    UpdateSlider();
     ResetTitle(m_worksheet->IsSaved());
 
     event.RequestMore();
@@ -4571,7 +4569,7 @@ void wxMaxima::PrintMenu(wxCommandEvent &event)
   }
 }
 
-void wxMaxima::UpdateMenus(wxUpdateUIEvent &WXUNUSED(event))
+void wxMaxima::UpdateMenus()
 {
   wxWindowUpdateLocker speedUp(this);
   if (!m_worksheet)
@@ -4642,7 +4640,7 @@ void wxMaxima::UpdateMenus(wxUpdateUIEvent &WXUNUSED(event))
 
 }
 
-void wxMaxima::UpdateToolBar(wxUpdateUIEvent &WXUNUSED(event))
+void wxMaxima::UpdateToolBar()
 {
   if (!m_worksheet->m_mainToolBar)
     return;
@@ -4931,8 +4929,7 @@ bool wxMaxima::OpenFile(const wxString &file, const wxString &command)
     RightStatusText(_("File could not be opened"));
 
   m_worksheet->RecalculateForce();
-  wxUpdateUIEvent dummy;
-  UpdateMenus(dummy);
+  UpdateMenus();
   m_worksheet->UpdateMLast();
   
   return retval;
@@ -9665,7 +9662,7 @@ void wxMaxima::ResetTitle(bool saved, bool force)
 ///  Plot Slider
 ///--------------------------------------------------------------------------------
 
-void wxMaxima::UpdateSlider(wxUpdateUIEvent &WXUNUSED(ev))
+void wxMaxima::UpdateSlider()
 {
   if (m_worksheet->m_mainToolBar)
   {

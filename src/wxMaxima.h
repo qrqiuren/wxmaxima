@@ -354,9 +354,9 @@ protected:
   void ReplaceSuggestion(wxCommandEvent &event);   //!< Processes clicks on suggestions
   void Interrupt(wxCommandEvent &event);           //!< Interrupt button and hotkey presses
   //! Make the menu item, toolbars and panes visible that should be visible right now.
-  void UpdateMenus(wxUpdateUIEvent &event);     //!< Enables and disables the Right menu buttons
-  void UpdateToolBar(wxUpdateUIEvent &event);      //!< Enables and disables the Right toolbar buttons
-  void UpdateSlider(wxUpdateUIEvent &event);       //!< Updates the slider to show the right frame
+  void UpdateMenus();        //!< Enables and disables the Right menu buttons
+  void UpdateToolBar();      //!< Enables and disables the Right toolbar buttons
+  void UpdateSlider();       //!< Updates the slider to show the right frame
   /*! Toggle the visibility of a pane
     \param event The event that triggered calling this function.
    */
