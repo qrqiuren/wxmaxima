@@ -154,12 +154,12 @@ after_test:
       7z a wxMaxima.exe.7z build/src/*.exe
 
 
-on_failure:
-  - ps: |
-      pushd c:\projects\wxMaxima\build
-      7z a FailureDump.zip *
-      Push-AppveyorArtifact FailureDump.zip
-      popd
+#on_failure:
+#  - ps: |
+#      pushd c:\projects\wxMaxima\build
+#      7z a FailureDump.zip *
+#      Push-AppveyorArtifact FailureDump.zip
+#      popd
 
 artifacts:
   -
