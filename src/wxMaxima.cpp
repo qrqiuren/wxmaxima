@@ -223,7 +223,6 @@ wxMaxima::wxMaxima(wxWindow *parent, int id, wxLocale *locale, const wxString ti
   m_maximaJiffies_old = 0;
   m_cpuTotalJiffies_old = 0;
 
-  m_updateControls = true;
   m_commandIndex = -1;
   m_isActive = true;
   wxConfigBase *config = wxConfig::Get();
@@ -4361,21 +4360,17 @@ void wxMaxima::OnIdle(wxIdleEvent &event)
 
   if(m_worksheet->RedrawIfRequested())
   {
-    m_updateControls = true;
     event.RequestMore();
     return;
   }
 
   // If nothing which is visible has changed nothing that would cause us to need
   // update the menus and toolbars has.
-  if (m_updateControls)
+  if (m_worksheet->UpdateControlsNeeded())
   {
-    m_updateControls = false;
     UpdateMenus();
     UpdateToolBar();
-    UpdateSlider();
     ResetTitle(m_worksheet->IsSaved());
-
     event.RequestMore();
     return;
   }
@@ -4425,7 +4420,7 @@ void wxMaxima::OnIdle(wxIdleEvent &event)
     event.RequestMore();
     return;
   }
-
+  
   if(UpdateDrawPane())
   {
     event.RequestMore();
@@ -4470,6 +4465,8 @@ void wxMaxima::OnIdle(wxIdleEvent &event)
     }
   }
 
+  UpdateSlider();
+  
   // If we reach this point wxMaxima truly is idle
   // => Tell wxWidgets it can process its own idle commands, as well.
   event.Skip();

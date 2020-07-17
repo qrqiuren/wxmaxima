@@ -212,7 +212,6 @@ private:
   //! The number of Jiffies the CPU had made the last time
   long long m_cpuTotalJiffies_old;
   //! Do we need to update the menus + toolbars?
-  bool m_updateControls;
   //! All configuration commands we still have to send to maxima
   wxString m_configCommands;
   //! A RegEx that matches gnuplot errors.
