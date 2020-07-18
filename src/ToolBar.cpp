@@ -603,9 +603,8 @@ void ToolBar::AnimationButtonState(AnimationStartStopState state)
         break;
     }
     m_AnimationStartStopState = state;
-    Refresh();
+    Realize();
   }
-  //  Realize() flickers on GTK3
 }
 
 void ToolBar::OnSize(wxSizeEvent &event)
