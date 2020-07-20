@@ -228,6 +228,9 @@ public:
 
   /*! Try to split this command into lines to make it fit on the screen
 
+    Since this is called after a GroupCell::UnBreakUpCells many cells 
+    trust that m_nextToDraw() points to m_next in this step.
+
     \retval true = This cell was split into lines.
   */
   virtual bool BreakUp();

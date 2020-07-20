@@ -110,12 +110,16 @@ Breaking long 2D objects into lines
 -----------------------------------
 
 wxMaxima can break some 2D objects into lines if they otherwise would be 
-longer wider than the screen. This is done in GroupCell::BreakLines.
+longer wider than the screen. 
 
 Objects that are broken apart this way technically aren't displayed 
-any more. Instead the lists of objects they contain are. If an object
-isn't broken apart it is displayed directly and automatically handles 
-displaying all of its contents.
+any more. Instead they add the lists of objects they contain to 
+the list composed of m_nextToDraw. If an object isn't broken apart 
+it is displayed itself and automatically handles displaying all of its 
+contents.
+
+The 2-pass layout process needed for this dynamic layout is 
+implemented in GroupCell::BreakLines.
 
 Naming rules
 ------------

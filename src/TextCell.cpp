@@ -503,7 +503,9 @@ void TextCell::Recalculate(AFontSize fontsize)
 {
   Configuration *configuration = (*m_configuration);
   if(NeedsRecalculation(fontsize))
-  {      
+  {
+    // Cell::Recalculate() undoes scaling labels to fit into the assigned space.
+    // We therefore need to call it a the beginning of Recalculation
     Cell::Recalculate(fontsize);
     m_fontSize = m_fontsize_old = fontsize;
     wxDC *dc = configuration->GetDC();

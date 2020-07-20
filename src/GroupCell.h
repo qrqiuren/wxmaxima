@@ -248,16 +248,43 @@ public:
    */
   void RecalculateHeightOutput();
 
-  /*! Attempt to split math objects that are wider than the screen into multiple lines.
-    
-    \retval true, if this action has changed the height of cells.
+  /*! Converts wider-than-the-screen cells to linear form that can be broken into lines
+
+    Always called after a UnBreakUpCells.
    */
   bool BreakUpCells(Cell *cell);
 
-  //! Undo a BreakUpCells
+  /*! Convert all cells that are in linear form to 2D objects
+    
+    Objects that are wider than the screen often can be converted to their linear form 
+    that can be broken into lines. In order to decide if that is necessary they first
+    have to be layouted as 2D objects, though, so a complete relayout 
+    (done by GroupCell::BreakLines() always contains a call to 
+    GroupCell::BreakUpCells() followed by a call to GroupCell::UnBreakUpCells().
+
+    \retval true, if this action has changed the height of cells.
+   */
   bool UnBreakUpCells(Cell *cell);
 
-  //! Break this cell into lines
+  /*! Break this cell into lines
+
+    This is a multi-pass process:
+    
+      * First all cells are converted to their nice-looking 2D form using UnBreakUpCells
+      * Then their size is determined which includes determining the size of all cells 
+        they contain
+      * Afterwards BreakUpCells converts all cells that are wider than the screen
+        to linear form, which unlike the 2D form can be broken into lines 
+        (a fraction in linear form isn't displayed as numerator and denominator divided 
+        by a horizontal line, but as the denumerator, a "/" and the numerator). If the 
+        individual cells this results in are still wider than the screen they are 
+        converted into linear form, too and so on.
+      * Once that is done linebreaks are added in the appropriate places.
+
+    In order to save time this process assumes the screen to be a little bit narrower
+    than it is and instead ignores that cells might change their font size if converted
+    to linear form.
+   */
   void BreakLines();
 
   /*! Reset the input label of the current cell.
