@@ -578,17 +578,12 @@ void GroupCell::RecalculateHeightOutput()
   }
   m_output->HardLineBreak();
 
-  Cell *tmp = m_output.get();
   m_mathFontSize = configuration->GetMathFontSize(); //-V519
   
-  // Recalculate widths of cells
-  while (tmp != NULL)
-  {
-    tmp->Recalculate(tmp->IsMath() ?
+  if(m_output.get() != Null)
+    m_output.get()->RecalculateList(tmp->IsMath() ?
                            (*m_configuration)->GetMathFontSize() :
-                           (*m_configuration)->GetDefaultFontSize());
-    tmp = tmp->m_next;
-  }
+                         (*m_configuration)->GetDefaultFontSize());
   
   // Breakup cells and break lines
   BreakLines();
@@ -1201,7 +1196,6 @@ wxString GroupCell::ToTeXCodeCell(wxString imgDir, wxString filename, int *imgCo
 
     while (tmp != NULL)
     {
-
       if (tmp->GetType() == MC_TYPE_IMAGE ||
           tmp->GetType() == MC_TYPE_SLIDE)
       {
