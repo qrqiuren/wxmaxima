@@ -593,16 +593,6 @@ void GroupCell::RecalculateHeightOutput()
   // Breakup cells and break lines
   BreakLines();
   
-  // Recalculate size of cells
-  // tmp = m_output.get();
-  // while (tmp != NULL)
-  // {
-  //   tmp->RecalculateHeight(tmp->IsMath() ?
-  //                          (*m_configuration)->GetMathFontSize() :
-  //                          (*m_configuration)->GetDefaultFontSize());
-  //   tmp = tmp->m_next;
-  // }
-
   // Update heights
   tmp = m_output.get();
   tmp->ForceBreakLine(true);
