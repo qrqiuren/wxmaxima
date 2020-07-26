@@ -53,28 +53,31 @@ bool RegexCtrl::Matches(wxString text)
 
 void RegexCtrl::OnTextChange(wxCommandEvent &WXUNUSED(ev))
 {
-  if (!GetValue().empty() && (GetValue() != m_oldRegex))
+  if (GetValue() != m_oldRegex)
   {
-    m_oldRegex = GetValue();
-    wxRegEx regex;
-    SuppressErrorDialogs blocker;
-    m_regex.Compile(GetValue());
-    // Update UI feedback if the state of the regex input control has changed
-    auto const newInputState = GetNewRegexInputState();
-    if (m_regexInputState != newInputState)
+    if(!GetValue().empty())
     {
-      m_regexInputState = newInputState;
-      const wxColor colors[3] = {
-        /* empty   */ wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW),
-        /* invalid */ {255,192,192},
-        /* valid   */ wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT)
-      };
-      const wxString tooltips[3] = {
-        /* empty */ RegexTooltip_norm, /* invalid */ RegexTooltip_error, /* valid */ RegexTooltip_norm
-      };
-      SetBackgroundColour(colors[int(m_regexInputState)]);
-      SetToolTip(tooltips[int(m_regexInputState)]);
-      Refresh();
+      m_oldRegex = GetValue();
+      wxRegEx regex;
+      SuppressErrorDialogs blocker;
+      m_regex.Compile(GetValue());
+      // Update UI feedback if the state of the regex input control has changed
+      auto const newInputState = GetNewRegexInputState();
+      if (m_regexInputState != newInputState)
+      {
+        m_regexInputState = newInputState;
+        const wxColor colors[3] = {
+          /* empty   */ wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW),
+          /* invalid */ {255,192,192},
+          /* valid   */ wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT)
+        };
+        const wxString tooltips[3] = {
+          /* empty */ RegexTooltip_norm, /* invalid */ RegexTooltip_error, /* valid */ RegexTooltip_norm
+        };
+        SetBackgroundColour(colors[int(m_regexInputState)]);
+        SetToolTip(tooltips[int(m_regexInputState)]);
+        Refresh();
+      }
     }
     wxCommandEvent event(REGEX_EVENT);
     wxPostEvent(this, event);
