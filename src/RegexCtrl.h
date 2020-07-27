@@ -38,6 +38,7 @@ class RegexCtrl : public wxTextCtrl
   public:
     wxLogBuffer_noStdErrFlush(): wxLogBuffer() {};
     virtual void Flush() override {}
+    ~wxLogBuffer_noStdErrFlush() override{};
   };
 public:
   RegexCtrl(wxWindow *parent,
