@@ -1387,9 +1387,8 @@ void wxMaximaFrame::SetupMenu()
   m_MenuBar->SetAutoWindowMenu(true);
   #endif
   SetMenuBar(m_MenuBar);
-
+  wxMenuBar::SetAutoWindowMenu(true);
 #undef APPEND_MENU_ITEM
-
 }
 
 bool wxMaximaFrame::ToolbarIsShown()
