@@ -1384,7 +1384,6 @@ void wxMaximaFrame::SetupMenu()
   m_MenuBar->Append(m_HelpMenu, _("&Help"));
 
   SetMenuBar(m_MenuBar);
-  wxMenuBar::SetAutoWindowMenu(true);
 #undef APPEND_MENU_ITEM
 }
 
