@@ -514,7 +514,8 @@ wxString EditorCell::ToTeX() const
       text = MarkDown.MarkDown(text);
     else
     {
-      text = wxT("\\begin{verbatim}\\\\") + text + wxT("\\end{verbatim}\\\\");
+      text.Replace(wxT("\n"), wxT("\\\\"));
+      text.Replace(wxT(" "), wxT("\ "));
     }
   }
   else
