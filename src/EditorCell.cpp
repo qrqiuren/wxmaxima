@@ -510,7 +510,12 @@ wxString EditorCell::ToTeX() const
     text.Replace(wxT("\u27F6"), wxT("\\ensuremath{\\longrightarrow}"));
     // Now we might want to introduce some markdown:
     MarkDownTeX MarkDown(*m_configuration);
-    text = MarkDown.MarkDown(text);
+    if(m_type != MC_TYPE_INPUT)
+      text = MarkDown.MarkDown(text);
+    else
+    {
+      text = wxT("\begin{verbatim}\\\\") + text + wxT("\end{verbatim}\\\\");
+    }
   }
   else
   {
