@@ -514,7 +514,7 @@ wxString EditorCell::ToTeX() const
       text = MarkDown.MarkDown(text);
     else
     {
-      text = wxT("\begin{verbatim}\\\\") + text + wxT("\end{verbatim}\\\\");
+      text = wxT("\\begin{verbatim}\\\\") + text + wxT("\\end{verbatim}\\\\");
     }
   }
   else
