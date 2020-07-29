@@ -834,8 +834,8 @@ wxString TextCell::ToTeX() const
         }
         else
         {
-          text.Replace(wxT("*"), wxT("\\cdot "));
-          text.Replace(wxT("\u00B7"), wxT("\\cdot "));
+          text.Replace(wxT("*"), wxT("\\ensuremath{\\cdot}"));
+          text.Replace(wxT("\u00B7"), wxT("\\ensuremath{\\cdot}}"));
         }
       }
     }
@@ -978,10 +978,11 @@ wxString TextCell::ToTeX() const
         text = wxT("\\operatorname{") + text + wxT("}");
       }
     }
-    else if (GetStyle() == TS_VARIABLE)
+    else if ((GetStyle() == TS_VARIABLE) || (GetStyle() == TS_GREEK_CONSTANT) ||
+             (GetStyle() == TS_SPECIAL_CONSTANT))
     {
       if ((m_displayedText.Length() > 1) && (text[1] != wxT('_')))
-        text = wxT("\\mathit{") + text + wxT("}");
+        text = wxT("\\ensuremath{\\mathrm{") + text + wxT("}}");
       if (text == wxT("\\% pi"))
         text = wxT("\\ensuremath{\\pi} ");
       text.Replace(wxT("\\text{ä}"), wxT("\\text{\\textit{ä}}"));
@@ -994,12 +995,12 @@ wxString TextCell::ToTeX() const
     else if ((GetStyle() == TS_ERROR) || (GetStyle() == TS_WARNING))
     {
       if (text.Length() > 1)
-        text = wxT("\\mbox{") + text + wxT("}");
+        text = wxT("\\mbox{%error\n") + text + wxT("}");
     }
     else if (GetStyle() == TS_DEFAULT)
-    {
+    {     
       if ((text.Length() > 2) && (text != wxT("\\,")) && (text != wxT("\\, ")))
-        text = wxT("\\mbox{") + text + wxT("}");
+        text = wxT("\\mbox{%default\n") + text + wxT("}");
     }
   }
 
