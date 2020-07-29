@@ -207,6 +207,12 @@ ConfigDialogue::ConfigDialogue(wxWindow *parent, Configuration *cfg)
   m_imageList->Add(GetImage(wxT("media-playback-start"),
                             media_playback_start_confdialogue_svg_gz,media_playback_start_confdialogue_svg_gz_len
                      ));
+  m_imageList->Add(GetImage(wxT("media-playback-start"),
+                            media_playback_start_confdialogue_svg_gz,media_playback_start_confdialogue_svg_gz_len
+                     ));
+  m_imageList->Add(GetImage(wxT("edit-undo"),
+                            view_refresh_svg_gz, view_refresh_svg_gz_len
+                     ));
 
   Create(parent, wxID_ANY, _("wxMaxima configuration"),
          wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE);
@@ -227,6 +233,7 @@ ConfigDialogue::ConfigDialogue(wxWindow *parent, Configuration *cfg)
   m_notebook->AddPage(CreateOptionsPanel(), _("Options"), false, 4);
   m_notebook->AddPage(CreateClipboardPanel(), _("Copy"), false, 5);
   m_notebook->AddPage(CreateStartupPanel(), _("Startup commands"), false, 6);
+  m_notebook->AddPage(CreateRevertToDefaultsPanel(), _("Revert all to defaults"), false, 7);
 
 #if !defined(__WXMSW__) && !defined(__WXOSX__)
   CreateButtons(wxOK | wxCANCEL);
@@ -245,7 +252,7 @@ ConfigDialogue::ConfigDialogue(wxWindow *parent, Configuration *cfg)
 
   LayoutDialog();
 
-  SetProperties();
+  SetCheckboxValues();
 
   Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(ConfigDialogue::OnClose),NULL, this);
   Connect(button_mathFont, wxEVT_BUTTON, wxCommandEventHandler(ConfigDialogue::OnMathBrowse), NULL, this);
@@ -295,7 +302,7 @@ void ConfigDialogue::MaximaLocationChanged(wxCommandEvent& WXUNUSED(unused))
     m_noAutodetectMaxima->SetForegroundColour(*wxRED);
 }
 
-void ConfigDialogue::SetProperties()
+void ConfigDialogue::SetCheckboxValues()
 {
   Configuration *configuration = m_configuration;
   SetTitle(_("wxMaxima configuration"));
@@ -373,7 +380,8 @@ void ConfigDialogue::SetProperties()
   m_hideBrackets->SetToolTip(
           _("Hide the brackets that mark the extend of the worksheet cells at the worksheet's right side and that contain the \"hide\" button of the cell if the cells aren't active."));
   m_indentMaths->SetToolTip(
-          _("Indent maths so all lines are in par with the first line that starts after the label."));
+          _("Indent maths so all lines are in par with the first line that starts after the label.")
+    );
 
   wxConfigBase *config = wxConfig::Get();
   wxString mp, mc, ib, mf;
@@ -505,6 +513,26 @@ void ConfigDialogue::SetProperties()
     ++i;
   }
   m_autoMathJaxURL->SetValue(m_configuration->MathJaXURL_Auto());
+  m_autodetectHelpBrowser->SetValue(m_configuration->AutodetectHelpBrowser());
+  m_noAutodetectHelpBrowser->SetValue(!m_configuration->AutodetectHelpBrowser());
+  m_maximaUserLocation->SetValue(m_configuration->MaximaUserLocation());
+  m_autodetectMaxima->SetValue(m_configuration->AutodetectMaxima());
+  m_noAutodetectMaxima->SetValue(!m_configuration->AutodetectMaxima());
+  m_helpBrowserUserLocation->SetValue(m_configuration->HelpBrowserUserLocation());
+  m_defaultPort->SetValue(m_configuration->DefaultPort());
+  m_copyBitmap->SetValue(m_configuration->CopyBitmap());
+  m_copyMathML->SetValue(m_configuration->CopyMathML());
+  m_copyMathMLHTML->SetValue(m_configuration->CopyMathMLHTML());
+  m_copyRTF->SetValue(m_configuration->CopyRTF());
+  m_copySVG->SetValue(m_configuration->CopySVG());
+  #if wxUSE_ENH_METAFILE
+  m_copyEMF->SetValue(m_configuration->CopyEMF());
+  #endif
+  if (m_configuration->FontName() != wxEmptyString)
+    m_getFont->SetLabel(m_configuration->FontName() + wxString::Format(wxT(" (%g)"), m_configuration->GetDefaultFontSize().Get()));
+  if (!m_configuration->MathFontName().empty())
+    m_getMathFont->SetLabel(m_configuration->MathFontName() + wxString::Format(wxT(" (%g)"), m_configuration->GetMathFontSize().Get()));
+  m_useUnicodeMaths->SetValue(m_configuration->UseUnicodeMaths());
 }
 
 wxPanel *ConfigDialogue::CreateWorksheetPanel()
@@ -626,27 +654,14 @@ wxPanel *ConfigDialogue::CreateWorksheetPanel()
   panel->SetSizer(vsizer);
   vsizer->Fit(panel);
 
-  m_autodetectHelpBrowser->SetValue(m_configuration->AutodetectHelpBrowser());
-  m_noAutodetectHelpBrowser->SetValue(!m_configuration->AutodetectHelpBrowser());
-  m_maximaUserLocation->SetValue(m_configuration->MaximaUserLocation());
-  m_autodetectMaxima->SetValue(m_configuration->AutodetectMaxima());
-  m_noAutodetectMaxima->SetValue(!m_configuration->AutodetectMaxima());
-  m_helpBrowserUserLocation->SetValue(m_configuration->HelpBrowserUserLocation());
-  m_defaultPort->SetValue(m_configuration->DefaultPort());
-  m_copyBitmap->SetValue(m_configuration->CopyBitmap());
-  m_copyMathML->SetValue(m_configuration->CopyMathML());
-  m_copyMathMLHTML->SetValue(m_configuration->CopyMathMLHTML());
-  m_copyRTF->SetValue(m_configuration->CopyRTF());
-  m_copySVG->SetValue(m_configuration->CopySVG());
-  #if wxUSE_ENH_METAFILE
-  m_copyEMF->SetValue(m_configuration->CopyEMF());
-  #endif
-  if (m_configuration->FontName() != wxEmptyString)
-    m_getFont->SetLabel(m_configuration->FontName() + wxString::Format(wxT(" (%g)"), m_configuration->GetDefaultFontSize().Get()));
-  if (!m_configuration->MathFontName().empty())
-    m_getMathFont->SetLabel(m_configuration->MathFontName() + wxString::Format(wxT(" (%g)"), m_configuration->GetMathFontSize().Get()));
-  m_useUnicodeMaths->SetValue(m_configuration->UseUnicodeMaths());
+  return panel;
+}
 
+wxPanel *ConfigDialogue::CreateRevertToDefaultsPanel()
+{
+  wxPanel *panel = new wxPanel(m_notebook, -1);
+  wxBoxSizer *vsizer = new wxBoxSizer(wxVERTICAL);
+  panel->SetSizerAndFit(vsizer);
   return panel;
 }
 
@@ -659,7 +674,6 @@ wxPanel *ConfigDialogue::CreateStartupPanel()
   wxPanel *panel_wxMaximaStartup = new wxPanel(panel, -1);
   wxBoxSizer *vsizer_maximaStartup = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *vsizer_wxMaximaStartup = new wxBoxSizer(wxVERTICAL);
-
 
   m_startupFileName = Dirstructure::Get()->UserConfDir();
   m_wxStartupFileName += m_startupFileName + wxT("wxmaxima-init.mac");
@@ -1043,10 +1057,10 @@ wxPanel *ConfigDialogue::CreateClipboardPanel()
 
   wxStaticText *descr = new wxStaticText(panel, -1, _("Additional clipboard formats to put on the clipboard on ordinary copy:"));
   vbox->Add(descr, 0, wxALL);
+  m_copyBitmap = new wxCheckBox(panel, -1, _("Bitmap"));
   vbox->Add(m_copyBitmap, 0, wxALL, 5);
 
   m_copyMathML = new wxCheckBox(panel, -1, _("MathML description"));
-  m_copyBitmap = new wxCheckBox(panel, -1, _("Bitmap"));
   vbox->Add(m_copyMathML, 0, wxALL, 5);
 
   m_copyMathMLHTML = new wxCheckBox(panel, -1, _("MathML as HTML"));
@@ -1473,7 +1487,7 @@ void ConfigDialogue::OnChangeStyle(wxCommandEvent&  WXUNUSED(event))
 void ConfigDialogue::OnResetAllToDefaults(wxCommandEvent&  WXUNUSED(event))
 {
   m_configuration->ResetAllToDefaults();
-  SetProperties();
+  SetCheckboxValues();
 }
 
 void ConfigDialogue::OnCheckbox(wxCommandEvent&  WXUNUSED(event))
