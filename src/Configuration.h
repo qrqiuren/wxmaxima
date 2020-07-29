@@ -131,6 +131,8 @@ public:
    */
   explicit Configuration(wxDC *dc = {}, InitOpt options = {});
 
+  void ResetAllToDefaults(InitOpt options = {});
+
   //! Set the drawing context that is currently active
   void SetContext(wxDC &dc)
   {

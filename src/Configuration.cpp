@@ -39,12 +39,17 @@
 #include <wx/fileconf.h>
 
 Configuration::Configuration(wxDC *dc, InitOpt options) :
-  m_dc(dc),
-  m_mathJaxURL("https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-AMS_HTML"),
-  m_documentclass("article"),
-  m_documentclassOptions("fleqn"),
-  m_symbolPaneAdditionalChars("Øü§")
+  m_dc(dc)
 {
+  ResetAllToDefaults(options);
+}
+
+void Configuration::ResetAllToDefaults(InitOpt options)
+{
+  m_mathJaxURL = wxT("https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-AMS_HTML");
+  m_documentclass = wxT("article");
+  m_documentclassOptions = wxT("fleqn");
+  m_symbolPaneAdditionalChars = wxT("Øü§");
   SetBackgroundBrush(*wxWHITE_BRUSH);
   m_hidemultiplicationsign = true;
   m_autodetectHelpBrowser = true;
@@ -119,7 +124,17 @@ Configuration::Configuration(wxDC *dc, InitOpt options) :
   m_useUnicodeMaths = true;
   m_offerKnownAnswers = true;
   m_parenthesisDrawMode = unknown;
-  
+  m_autoWrap = 3;
+  m_displayedDigits = 100;
+  m_autoIndent = true;
+  m_restartOnReEvaluation = true;
+  m_matchParens = true;
+  m_insertAns = false;
+  m_openHCaret = false;
+  m_labelWidth = 4;
+  m_zoomFactor = 1.0;
+  m_TeXFonts = false;
+  m_keepPercent = true;  
   InitStyles();
 }
 
@@ -397,8 +412,6 @@ bool Configuration::MaximaFound(wxString location)
 void Configuration::ReadConfig()
 {
   wxConfigBase *config = wxConfig::Get();
-  m_autoWrap = 3;
-
   if(!config->Read(wxT("AutoSaveAsTempFile"), &m_autoSaveAsTempFile))
   {
     long autoSaveMinutes = 0;
@@ -455,10 +468,9 @@ void Configuration::ReadConfig()
   if (m_maximaUserLocation.IsSameAs(wxT("1")))
     m_maximaUserLocation = Dirstructure::Get()->MaximaDefaultLocation();
 
-  m_autoIndent = true;
   config->Read(wxT("autoIndent"), &m_autoIndent);
 
-  int showLabelChoice;
+  int showLabelChoice = 0;
   config->Read(wxT("showLabelChoice"), &showLabelChoice);
   m_showLabelChoice = (showLabels) showLabelChoice; 
 
@@ -468,29 +480,22 @@ void Configuration::ReadConfig()
 
   config->Read(wxT("hideBrackets"), &m_hideBrackets);
 
-  m_displayedDigits = 100;
   config->Read(wxT("displayedDigits"), &m_displayedDigits);
   if (m_displayedDigits <= 20)
     m_displayedDigits = 20;
 
-  m_restartOnReEvaluation = true;
   config->Read(wxT("restartOnReEvaluation"), &m_restartOnReEvaluation);
 
-  m_matchParens = true;
   config->Read(wxT("matchParens"), &m_matchParens);
 
-  m_insertAns = false;
   config->Read(wxT("insertAns"), &m_insertAns);
 
-  m_openHCaret = false;
   config->Read(wxT("openHCaret"), &m_openHCaret);
   
-  m_labelWidth = 4;
   config->Read(wxT("labelWidth"), &m_labelWidth);
 
   config->Read(wxT("printBrackets"), &m_printBrackets);
 
-  m_zoomFactor = 1.0;
   config->Read(wxT("ZoomFactor"), &m_zoomFactor);
 
   if (wxFontEnumerator::IsValidFacename((m_fontCMEX = AFontName::CMEX10()).GetAsString()) &&
@@ -503,7 +508,6 @@ void Configuration::ReadConfig()
     config->Read(wxT("usejsmath"), &m_TeXFonts);
   }
 
-  m_keepPercent = true;
   wxConfig::Get()->Read(wxT("keepPercent"), &m_keepPercent);
 
   ReadStyles();
