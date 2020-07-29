@@ -650,7 +650,15 @@ wxString TextCell::ToTeX() const
   {
     mathModeStart = wxT("\\ensuremath{");
     mathModeEnd = wxT("}");
-    text.Replace(wxT("\\"), mathModeStart + wxT("\\backslash") + mathModeEnd);
+    if(
+      (GetStyle() == TS_LABEL) ||
+      (GetStyle() == TS_USERLABEL) ||
+      (GetStyle() == TS_MAIN_PROMPT) ||
+      (GetStyle() == TS_OTHER_PROMPT)
+      )
+    text.Replace(wxT("\\"), wxEmptyString);
+    else
+      text.Replace(wxT("\\"), mathModeStart + wxT("\\backslash") + mathModeEnd);
     text.Replace(wxT("{"), wxT("\\{"));
     text.Replace(wxT("}"), wxT("\\}"));
   }
