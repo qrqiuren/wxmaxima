@@ -710,6 +710,7 @@ void Configuration::SetZoomFactor(double newzoom)
 Configuration::~Configuration()
 {
   WriteStyles();
+  WriteSettings();
 }
 
 bool Configuration::CharsExistInFont(const wxFont &font, const wxString &chars)
@@ -1016,6 +1017,62 @@ wxColor Configuration::MakeColorDifferFromBackground(wxColor color)
   }
 }
 
+void Configuration::WriteSettings()
+{
+  wxConfigBase *config = wxConfig::Get();
+  config->Write(wxT("hideBrackets"), m_hideBrackets);
+  config->Write(wxT("printScale"), m_printScale);
+  config->Write(wxT("AutoSaveAsTempFile"), m_autoSaveAsTempFile);
+  config->Write(wxT("autoWrapMode"), m_autoWrap);
+  config->Write(wxT("autoIndent"), m_autoIndent);
+  config->Write(wxT("indentMaths"), m_indentMaths);
+  config->Write(wxT("matchParens"), m_matchParens);
+  config->Write(wxT("changeAsterisk"), m_changeAsterisk);
+  config->Write(wxT("hidemultiplicationsign"), m_hidemultiplicationsign);
+  config->Write(wxT("latin2greek"), m_latin2greek);
+  config->Write(wxT("greekSidebar_ShowLatinLookalikes"), m_greekSidebar_ShowLatinLookalikes);
+  config->Write(wxT("greekSidebar_Show_mu"), m_greekSidebar_Show_mu);
+  config->Write(wxT("symbolPaneAdditionalChars"),m_symbolPaneAdditionalChars);
+  config->Write(wxT("notifyIfIdle"), m_notifyIfIdle);
+  config->Write(wxT("displayedDigits"), m_displayedDigits);
+  config->Write(wxT("insertAns"), m_insertAns);
+  config->Write(wxT("openHCaret"), m_openHCaret);
+  config->Write(wxT("restartOnReEvaluation"), m_restartOnReEvaluation);
+  config->Write(wxT("invertBackground"), m_invertBackground);
+  config->Write(wxT("showLabelChoice"), (int) (m_showLabelChoice));
+  config->Write(wxT("printBrackets"), m_printBrackets);
+  config->Write(wxT("autodetectMaxima"), m_autodetectMaxima);
+  config->Write(wxT("parameters"),m_maximaParameters);
+  config->Write(wxT("maxima"), m_maximaUserLocation);
+  config->Write(wxT("autodetectHelpBrowser"), m_autodetectHelpBrowser);
+  config->Write(wxT("helpBrowser"), m_helpBrowserUserLocation);
+  config->Write(wxT("fixReorderedIndices"), m_fixReorderedIndices);
+  config->Write(wxT("mathJaxURL_UseUser"), m_mathJaxURL_UseUser);
+  config->Write(wxT("enterEvaluates"), m_enterEvaluates);
+  config->Write(wxT("mathJaxURL"), m_mathJaxURL);
+  config->Write(wxT("antiAliasLines"), m_antiAliasLines);
+  config->Write(wxT("copyBitmap"), m_copyBitmap);
+  config->Write(wxT("copyMathML"), m_copyMathML);
+  config->Write(wxT("copyMathMLHTML"), m_copyMathMLHTML);
+  config->Write(wxT("copyRTF"), m_copyRTF);
+  config->Write(wxT("copySVG"), m_copySVG);
+  config->Write(wxT("copyEMF"), m_copyEMF);
+  config->Write(wxT("useSVG"), m_useSVG);
+  config->Write(wxT("showLength"), m_showLength);
+  config->Write(wxT("TOCshowsSectionNumbers"), m_TOCshowsSectionNumbers);
+  config->Write(wxT("useUnicodeMaths"), m_useUnicodeMaths);
+  config->Write("defaultPort",m_defaultPort);
+  config->Write("abortOnError",m_abortOnError);
+  config->Write("language",m_language);
+  config->Write("maxGnuplotMegabytes",m_maxGnuplotMegabytes);
+  config->Write("offerKnownAnswers",m_offerKnownAnswers);
+  config->Write("documentclass",m_documentclass);
+  config->Write("documentclassoptions",m_documentclassOptions);
+  config->Write("HTMLequationFormat", (int) (m_htmlEquationFormat));
+  config->Write("Style/Default/Style/Text/fontname",(m_fontName).GetAsString());
+  config->Write("Style/Math/fontname",(m_mathFontName).GetAsString());
+  config->Write("autosubscript", m_autoSubscript);
+}
 const wxString &Configuration::GetStyleName(TextStyle style) const
 {
   static const wxString *names[NUMBEROFSTYLES] = {

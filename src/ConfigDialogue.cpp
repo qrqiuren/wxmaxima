@@ -33,6 +33,7 @@
 #include "BTextCtrl.h"
 #include "Cell.h"
 #include "Dirstructure.h"
+#include "WrappingStaticText.h"
 #include <wx/config.h>
 #include <wx/display.h>
 #include <wx/fileconf.h>
@@ -203,9 +204,6 @@ ConfigDialogue::ConfigDialogue(wxWindow *parent, Configuration *cfg)
                      ));
   m_imageList->Add(GetImage(wxT("edit-copy"),
                             edit_copy_confdialogue_svg_gz,edit_copy_confdialogue_svg_gz_len
-                     ));
-  m_imageList->Add(GetImage(wxT("media-playback-start"),
-                            media_playback_start_confdialogue_svg_gz,media_playback_start_confdialogue_svg_gz_len
                      ));
   m_imageList->Add(GetImage(wxT("media-playback-start"),
                             media_playback_start_confdialogue_svg_gz,media_playback_start_confdialogue_svg_gz_len
@@ -661,6 +659,36 @@ wxPanel *ConfigDialogue::CreateRevertToDefaultsPanel()
 {
   wxPanel *panel = new wxPanel(m_notebook, -1);
   wxBoxSizer *vsizer = new wxBoxSizer(wxVERTICAL);
+  WrappingStaticText *helpText1 = new WrappingStaticText(
+    panel, -1,
+    _("The buttons in this category reset wxMaxima's settings "
+      "immediately, once they are pressed."));
+  vsizer->Add(helpText1,
+              wxSizerFlags().Border(wxALL,5).
+              Expand()
+    );
+  wxButton *resetAllButton = new wxButton(panel, -1, _("Reset all GUI settings"));
+  resetAllButton->Connect(wxEVT_BUTTON,
+                          wxCommandEventHandler(ConfigDialogue::OnResetAllToDefaults),
+                          NULL, this);
+  vsizer->Add(
+    resetAllButton,
+    wxSizerFlags().Border(wxALL,5).
+    Expand()
+    );
+  WrappingStaticText *helpText2 = new WrappingStaticText(
+    panel, -1,
+    _("While wxMaxima is controlled by the settings here "
+      "Maxima as a command-line program isn't controlled by "
+      "settings, except of the few wxMaxima settings that set "
+      "the value of variables within Maxima: Instead Maxima "
+      "is configured using environment variables, the Startup "
+      "File and command-line switches."));
+  vsizer->Add(
+    helpText2,
+    wxSizerFlags().Border(wxALL,5).
+    Expand()
+    );
   panel->SetSizerAndFit(vsizer);
   return panel;
 }
@@ -1486,8 +1514,11 @@ void ConfigDialogue::OnChangeStyle(wxCommandEvent&  WXUNUSED(event))
 
 void ConfigDialogue::OnResetAllToDefaults(wxCommandEvent&  WXUNUSED(event))
 {
+  wxLogMessage(_("Resetting all configuration settings"));
   m_configuration->ResetAllToDefaults();
   SetCheckboxValues();
+  wxCommandEvent dummy;
+  OnChangeStyle(dummy);
 }
 
 void ConfigDialogue::OnCheckbox(wxCommandEvent&  WXUNUSED(event))
