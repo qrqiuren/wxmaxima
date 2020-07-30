@@ -274,7 +274,7 @@
 			(format nil "<mi>~a</mi>" sub-var))
 		    (if sub-int
 			;; sub-symb discarded leading zeros from subscripts
-			(format nil "<mn>~a</mn>" sub) 
+			(format nil "<mi>~a</mi>" sub) 
                       (format nil "<mi>~a</mi>" sub))))))))
 
   (defun wxxmlnumformat (atom)
@@ -499,7 +499,7 @@
   (defprop mprogn (("<mrow><p>") "</p></mrow>") wxxmlsym)
 
   (defprop mlist wxxml-matchfix wxxml)
-  (defprop mlist (("<mrow list=\"true\"><t listdelim=\"true\">[</t>")"<t >]</t></mrow>") wxxmlsym)
+  (defprop mlist (("<mrow list=\"true\"><t listdelim=\"true\">[</t>")"<t listdelim=\"true\">]</t></mrow>") wxxmlsym)
 
   (defprop $set wxxml-matchfix wxxml)
   (defprop $set (("<mrow><t>{</t>")"<t>}</t></mrow>") wxxmlsym)
