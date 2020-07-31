@@ -72,7 +72,7 @@
 #include "WXMformat.h"
 #include "ErrorRedirector.h"
 #include "LabelCell.h"
-
+#include "../data/manual_anchors.xml.gz.h"
 #include <wx/colordlg.h>
 #include <wx/clipbrd.h>
 #include <wx/filedlg.h>
@@ -3932,6 +3932,8 @@ void wxMaxima::CompileHelpFileAnchors()
   SuppressErrorDialogs suppressor;
   
   wxString MaximaHelpFile = GetMaximaHelpFile();
+  if(!wxFileExists(MaximaHelpFile))
+    MaximaHelpFile = wxEmptyString;
   #ifdef HAVE_OMP_HEADER
   omp_set_lock(&m_helpFileAnchorsLock);
   #else
@@ -4071,28 +4073,17 @@ void wxMaxima::CompileHelpFileAnchors()
                                   saveName.utf8_str()));
     xmlDoc.Save(saveName);
   }
+
+  if(m_worksheet->m_helpFileAnchors.empty())
+    LoadBuiltInManualAnchors();
   #ifdef HAVE_OMP_HEADER
   omp_unset_lock(&m_helpFileAnchorsLock);
   #endif
 }
 
 
-bool wxMaxima::LoadManualAnchorsFromCache()
+bool wxMaxima::LoadManualAnchorsFromXML(wxXmlDocument xmlDocument)
 {
-  SuppressErrorDialogs suppressor;
-  wxString anchorsFile = Dirstructure::Get()->AnchorsCacheFile();
-  if(!wxFileExists(anchorsFile))
-  {
-    wxLogMessage(_("No file with the subjects the manual contained in the last wxMaxima run."));
-    return false;
-  }
-  wxXmlDocument xmlDocument(anchorsFile);
-  if(!xmlDocument.IsOk())
-  {
-    wxLogMessage(_("The cache for the subjects the manual contains cannot be read."));
-    wxRemoveFile(anchorsFile);
-    return false;
-  }
   wxXmlNode *headNode = xmlDocument.GetDocumentNode();
   if(!headNode)
   {
@@ -4138,13 +4129,44 @@ bool wxMaxima::LoadManualAnchorsFromCache()
     }
     entry = entry->GetNext();
   }
-  bool done = !m_worksheet->m_helpFileAnchors.empty();
-  if(done)
+  return !m_worksheet->m_helpFileAnchors.empty();
+}
+
+bool wxMaxima::LoadBuiltInManualAnchors()
+{
+  wxLogMessage(_("Using the built-in list of manual anchors."));
+  wxMemoryInputStream istream(manual_anchors_xml_gz, manual_anchors_xml_gz_len);
+  wxZlibInputStream zstream(istream);
+  wxXmlDocument xmlDoc;
+  xmlDoc.Load(zstream, wxT("UTF-8"));
+
+  return LoadManualAnchorsFromXML(xmlDoc);
+}
+
+bool wxMaxima::LoadManualAnchorsFromCache()
+{
+  SuppressErrorDialogs suppressor;
+  wxString anchorsFile = Dirstructure::Get()->AnchorsCacheFile();
+  if(!wxFileExists(anchorsFile))
+  {
+    wxLogMessage(_("No file with the subjects the manual contained in the last wxMaxima run."));
+    return false;
+  }
+  wxXmlDocument xmlDocument(anchorsFile);
+  if(!xmlDocument.IsOk())
+  {
+    wxLogMessage(_("The cache for the subjects the manual contains cannot be read."));
+    wxRemoveFile(anchorsFile);
+    return false;
+  }
+  
+  if(LoadManualAnchorsFromXML(xmlDocument))
   {
     wxLogMessage(wxString::Format(_("Read the entries the maxima manual offers from %s"), Dirstructure::Get()->AnchorsCacheFile().utf8_str()));
     m_worksheet->m_helpFileAnchorsUsable = true;
+    return true;
   }
-  return done;
+  return !m_worksheet->m_helpFileAnchors.empty();
 }
 
 void wxMaxima::ShowMaximaHelp(wxString keyword)
