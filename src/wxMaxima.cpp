@@ -2631,7 +2631,12 @@ void wxMaxima::ReadVariables(wxString &data)
               if(m_worksheet->m_helpFileAnchors.empty())
               {
                 if(!LoadManualAnchorsFromCache())
-                  m_compileHelpAnchorsTimer.StartOnce(4000);
+                {
+                  if(!wxFileExists(GetMaximaHelpFile()))
+                    LoadBuiltInManualAnchors();
+                  else
+                    m_compileHelpAnchorsTimer.StartOnce(4000);
+                }
               }
             }
             if(name == "*lisp-name*")
@@ -3932,8 +3937,7 @@ void wxMaxima::CompileHelpFileAnchors()
   SuppressErrorDialogs suppressor;
   
   wxString MaximaHelpFile = GetMaximaHelpFile();
-  if(!wxFileExists(MaximaHelpFile))
-    MaximaHelpFile = wxEmptyString;
+
   #ifdef HAVE_OMP_HEADER
   omp_set_lock(&m_helpFileAnchorsLock);
   #else
@@ -4074,8 +4078,6 @@ void wxMaxima::CompileHelpFileAnchors()
     xmlDoc.Save(saveName);
   }
 
-  if(m_worksheet->m_helpFileAnchors.empty())
-    LoadBuiltInManualAnchors();
   #ifdef HAVE_OMP_HEADER
   omp_unset_lock(&m_helpFileAnchorsLock);
   #endif
